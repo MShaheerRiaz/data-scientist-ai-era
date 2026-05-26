@@ -69,20 +69,22 @@ def cli():
 # ------------------------------------------------------------------ #
 
 @cli.command()
-@click.argument("game", default="lotto",
+@click.argument("game", default="euromillions",
                 type=click.Choice(list(REGISTRY.keys()), case_sensitive=False))
 @click.option("--count", "-n", default=5, show_default=True,
               help="Number of picks to generate")
 @click.option("--strategy", "-s",
-              type=click.Choice(["ev", "cold", "balanced"]), default="ev", show_default=True,
-              help="ev=max expected share, cold=favour undrawn numbers, balanced=mix")
+              type=click.Choice(["ev"]), default="ev", show_default=True,
+              help="ev=max expected jackpot share (only strategy with academic support)")
 @click.option("--offline", is_flag=True,
               help="Use cached data only, no network requests")
 @click.option("--bias-preset", default="research", show_default=True,
               type=click.Choice(["research", "conservative"]),
               help="Calibration preset for human-picking bias model")
-def pick(game, count, strategy, offline, bias_preset):
-    """Generate smart number picks for GAME (default: lotto)."""
+@click.option("--jackpot", "-j", default=None, type=float,
+              help="Current jackpot in millions EUR (e.g. 130 for €130M). Shows EV analysis.")
+def pick(game, count, strategy, offline, bias_preset, jackpot):
+    """Generate smart number picks for GAME (default: euromillions)."""
     game_config = get_game(game)
     click.echo(f"\nLoading draw history for {game_config.display_name}...")
     draws = _load_draws(game_config, offline=offline)
@@ -95,7 +97,8 @@ def pick(game, count, strategy, offline, bias_preset):
         bias_preset=bias_preset,
     )
     picks = picker.generate(count=count)
-    print_picks(picks, game_config, strategy)
+    jackpot_eur = jackpot * 1_000_000 if jackpot else None
+    print_picks(picks, game_config, strategy, jackpot_eur=jackpot_eur)
 
 
 # ------------------------------------------------------------------ #

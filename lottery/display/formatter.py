@@ -1,15 +1,13 @@
 """
-Terminal output formatter. Uses `rich` if available, else falls back to plain ASCII.
+Terminal output formatter. Uses `rich` if available, else plain ASCII.
 """
-import math
 
 try:
     from rich.console import Console
     from rich.table import Table
     from rich import box
     from rich.panel import Panel
-    from rich.text import Text
-    from rich.style import Style
+    from rich.rule import Rule
     _RICH = True
     _console = Console()
 except ImportError:
@@ -17,7 +15,15 @@ except ImportError:
     _console = None
 
 
-def _fmt_money(pence: int) -> str:
+def _fmt_money_eur(eur: float) -> str:
+    if eur >= 1_000_000:
+        return f"€{eur/1_000_000:.0f}M"
+    if eur >= 1_000:
+        return f"€{eur/1_000:.0f}K"
+    return f"€{eur:.0f}"
+
+
+def _fmt_money_gbp(pence: int) -> str:
     if pence == 0:
         return "varies"
     gbp = pence / 100
@@ -46,6 +52,39 @@ def _fmt_prob(odds: int) -> str:
 
 
 # ------------------------------------------------------------------ #
+# EV / Jackpot context
+# ------------------------------------------------------------------ #
+
+def print_ev_context(jackpot_eur: float):
+    """Show jackpot EV analysis — call before printing picks."""
+    from lottery.analysis.ev_calculator import expected_value, break_even_jackpot
+    ev = expected_value(jackpot_eur)
+    bep = break_even_jackpot()
+
+    if _RICH:
+        color = "bold green" if ev["is_positive_ev"] else (
+            "yellow" if ev["ev_per_pound_spent"] > 0.65 else "dim"
+        )
+        lines = [
+            f"  Jackpot:           [bold]{_fmt_money_eur(jackpot_eur)}[/bold]  "
+            f"(break-even ≈ {_fmt_money_eur(bep)})",
+            f"  Tickets sold est:  ~{ev['estimated_tickets_sold']/1_000_000:.0f}M",
+            f"  Sharing factor:    {ev['sharing_factor']:.3f}×",
+            f"  Total EV/ticket:   €{ev['total_ev']:.3f}  "
+            f"({ev['ev_per_pound_spent']*100:.1f}p return per €1 spent)",
+            f"  [{color}]{ev['verdict']}[/{color}]",
+        ]
+        _console.print(Panel("\n".join(lines), title="[bold]Jackpot EV Analysis[/bold]",
+                              expand=False))
+    else:
+        bep_fmt = _fmt_money_eur(bep)
+        print(f"\n  Jackpot EV Analysis")
+        print(f"  Jackpot: {_fmt_money_eur(jackpot_eur)}  (break-even ≈ {bep_fmt})")
+        print(f"  EV/ticket: €{ev['total_ev']:.3f}  ({ev['ev_per_pound_spent']*100:.1f}p per €1)")
+        print(f"  {ev['verdict']}")
+
+
+# ------------------------------------------------------------------ #
 # Odds table
 # ------------------------------------------------------------------ #
 
@@ -64,117 +103,95 @@ def _rich_odds_table(game):
     t.add_column("Probability", justify="right")
     t.add_column("Prize", justify="right", style="green")
     t.add_column("Notes", style="dim")
-
     for tier in game.prize_tiers:
-        prize = _fmt_money(tier.fixed_value * 100) if tier.fixed_value else "Jackpot share"
+        prize = _fmt_money_gbp(tier.fixed_value * 100) if tier.fixed_value else "Jackpot share"
         if tier.prize_type == "monthly":
-            prize = "£10K/mo × 30yr"
-        t.add_row(
-            tier.name,
-            _fmt_odds(tier.odds),
-            _fmt_prob(tier.odds),
-            prize,
-            tier.description,
-        )
+            prize = "£10K/mo×30yr"
+        t.add_row(tier.name, _fmt_odds(tier.odds), _fmt_prob(tier.odds), prize, tier.description)
     _console.print(t)
-    _console.print(f"  Ticket cost: £{game.ticket_cost_gbp:.2f}  |  "
-                   f"Draws: {', '.join(game.draw_days)}\n")
+    _console.print(f"  Ticket: £{game.ticket_cost_gbp:.2f}  |  Draws: {', '.join(game.draw_days)}\n")
 
 
 def _ascii_odds_table(game):
-    print(f"\n{'='*70}")
-    print(f"  {game.display_name} — Prize Tiers")
-    print(f"{'='*70}")
-    print(f"  {'Tier':<30} {'Odds':<18} {'Probability':<14} Prize")
+    print(f"\n{'='*70}\n  {game.display_name} — Prize Tiers\n{'='*70}")
+    print(f"  {'Tier':<30} {'Odds':<18} {'Prob':<14} Prize")
     print(f"  {'-'*66}")
     for tier in game.prize_tiers:
-        prize = _fmt_money(tier.fixed_value * 100) if tier.fixed_value else "Jackpot"
+        prize = _fmt_money_gbp(tier.fixed_value * 100) if tier.fixed_value else "Jackpot"
         if tier.prize_type == "monthly":
             prize = "£10K/mo×30yr"
         print(f"  {tier.name:<30} {_fmt_odds(tier.odds):<18} {_fmt_prob(tier.odds):<14} {prize}")
-    print(f"\n  Ticket cost: £{game.ticket_cost_gbp:.2f}  |  Draws: {', '.join(game.draw_days)}\n")
+    print(f"\n  Ticket: £{game.ticket_cost_gbp:.2f}  |  Draws: {', '.join(game.draw_days)}\n")
 
 
 # ------------------------------------------------------------------ #
 # Pick results
 # ------------------------------------------------------------------ #
 
-def print_picks(picks: list, game_config, strategy: str):
+def print_picks(picks: list, game_config, strategy: str, jackpot_eur: float = None):
+    if jackpot_eur and game_config.slug == "euromillions":
+        print_ev_context(jackpot_eur)
     if _RICH:
         _rich_picks(picks, game_config, strategy)
     else:
         _ascii_picks(picks, game_config, strategy)
 
 
-def _format_main_balls(balls: tuple) -> str:
-    return "  ".join(f"{n:2d}" for n in sorted(balls))
-
-
-def _format_bonus_balls(balls: tuple, game) -> str:
-    if not balls:
-        return ""
-    label = {1: "Lucky Stars", 2: "Lucky Stars"}.get(game.bonus_count, "Bonus")
-    if game.slug == "lotto":
-        label = "Bonus"
-    elif game.slug == "set-for-life":
-        label = "Life Ball"
-    elif game.slug == "thunderball":
-        label = "Thunderball"
-    return f"  +  {label}: {', '.join(str(b) for b in balls)}"
+def _label_bonus(game) -> str:
+    labels = {
+        "lotto": "Bonus",
+        "euromillions": "⭐ Lucky Stars",
+        "set-for-life": "Life Ball",
+        "thunderball": "Thunderball",
+    }
+    return labels.get(game.slug, "Bonus")
 
 
 def _rich_picks(picks, game, strategy):
-    header = f"[bold green]{game.display_name}[/bold green] — Smart Picks  " \
-             f"[dim](strategy: {strategy})[/dim]"
     _console.print()
-    _console.print(Panel(header, expand=False))
-
+    _console.print(Panel(
+        f"[bold green]{game.display_name}[/bold green] — Smart Picks  "
+        f"[dim](strategy: {strategy} | v2 research-calibrated)[/dim]",
+        expand=False,
+    ))
+    bonus_label = _label_bonus(game)
     for i, pick in enumerate(picks, 1):
-        main = _format_main_balls(pick.main_balls)
-        bonus = _format_bonus_balls(pick.bonus_balls, game)
-        line1 = f"  [bold yellow]{main}[/bold yellow][cyan]{bonus}[/cyan]"
-
-        stats = (
-            f"  EV multiplier: [bold]{pick.ev_multiplier:.2f}×[/bold]  |  "
-            f"Numbers >31: {sum(1 for n in pick.main_balls if n > 31)}/{game.main_pick}  |  "
+        main_str = "  ".join(f"[bold yellow]{n:2d}[/bold yellow]" for n in sorted(pick.main_balls))
+        bonus_str = ", ".join(str(b) for b in pick.bonus_balls)
+        _console.rule(f"[dim] Pick {i} [/dim]")
+        _console.print(f"  {main_str}   [cyan]{bonus_label}: {bonus_str}[/cyan]")
+        _console.print(
+            f"  [bold]{pick.ev_multiplier:.1f}×[/bold] EV  |  "
+            f"Sum: {pick.ball_sum}  |  "
             f"Spread: {pick.spread}  |  "
+            f"Odd/Even: {pick.odd_count}/{game.main_pick - pick.odd_count}  |  "
             f"Birthday nums: {pick.birthday_count}"
         )
-        rationale = f"  [dim]{pick.rationale}[/dim]"
-
-        _console.rule(f"[dim] Pick {i} [/dim]")
-        _console.print(line1)
-        _console.print(stats)
-        _console.print(rationale)
-
+        _console.print(f"  [dim]{pick.rationale}[/dim]")
     _console.print()
     _console.print(
-        "[bold]EV multiplier[/bold]: if you win the jackpot, your expected share is this many "
-        "times larger than an average ticket (due to fewer people choosing the same numbers)."
+        "[bold]EV multiplier[/bold]: if you win, your expected jackpot share is this many "
+        "times larger than an average ticket (research-calibrated bias model)."
     )
     _console.print()
 
 
 def _ascii_picks(picks, game, strategy):
-    print(f"\n{'='*70}")
-    print(f"  {game.display_name} — Smart Picks  (strategy: {strategy})")
-    print(f"{'='*70}")
+    bonus_label = _label_bonus(game)
+    print(f"\n{'='*70}\n  {game.display_name} — Smart Picks (strategy: {strategy})\n{'='*70}")
     for i, pick in enumerate(picks, 1):
-        main = _format_main_balls(pick.main_balls)
-        bonus = _format_bonus_balls(pick.bonus_balls, game)
-        print(f"\n  Pick {i}:  {main}{bonus}")
-        print(f"    EV multiplier: {pick.ev_multiplier:.2f}×  |  "
-              f"Numbers >31: {sum(1 for n in pick.main_balls if n > 31)}/{game.main_pick}  |  "
-              f"Spread: {pick.spread}  |  Birthday nums: {pick.birthday_count}")
+        main_str = "  ".join(f"{n:2d}" for n in sorted(pick.main_balls))
+        bonus_str = ", ".join(str(b) for b in pick.bonus_balls)
+        print(f"\n  Pick {i}:  {main_str}   {bonus_label}: {bonus_str}")
+        print(f"    EV: {pick.ev_multiplier:.1f}×  Sum: {pick.ball_sum}  "
+              f"Spread: {pick.spread}  Odd/Even: {pick.odd_count}/{game.main_pick - pick.odd_count}  "
+              f"Birthday: {pick.birthday_count}")
         print(f"    {pick.rationale}")
-    print()
-    print("  EV multiplier: if you win, your expected jackpot share is this many")
-    print("  times larger than an average ticket (fewer people chose the same numbers).")
     print()
 
 
 # ------------------------------------------------------------------ #
-# Stats / frequency table
+# Stats
 # ------------------------------------------------------------------ #
 
 def print_frequency_stats(summary: list, game_config, last_n: int):
@@ -186,7 +203,7 @@ def print_frequency_stats(summary: list, game_config, last_n: int):
 
 def _rich_stats(summary, game, last_n):
     t = Table(
-        title=f"[bold]{game.display_name}[/bold] — Ball Frequency  [dim](last {last_n} draws)[/dim]",
+        title=f"[bold]{game.display_name}[/bold] — Ball Frequency  [dim]({last_n} draws)[/dim]",
         box=box.SIMPLE_HEAVY,
     )
     t.add_column("Ball", justify="right", style="cyan")
@@ -194,7 +211,6 @@ def _rich_stats(summary, game, last_n):
     t.add_column("Expected", justify="right", style="dim")
     t.add_column("Deviation", justify="right")
     t.add_column("Status", justify="center")
-
     for row in summary:
         dev = row["deviation"]
         if dev > 10:
@@ -202,20 +218,14 @@ def _rich_stats(summary, game, last_n):
         elif dev < -10:
             status, style = "COLD", "bold blue"
         else:
-            status, style = "normal", "dim"
-        dev_str = f"{dev:+.1f}%"
-        t.add_row(
-            str(row["ball"]),
-            str(row["count"]),
-            str(row["expected"]),
-            f"[{style}]{dev_str}[/{style}]",
-            f"[{style}]{status}[/{style}]",
-        )
+            status, style = "—", "dim"
+        t.add_row(str(row["ball"]), str(row["count"]), str(row["expected"]),
+                  f"[{style}]{dev:+.1f}%[/{style}]", f"[{style}]{status}[/{style}]")
     _console.print(t)
 
 
 def _ascii_stats(summary, game, last_n):
-    print(f"\n{game.display_name} — Ball Frequency (last {last_n} draws)")
+    print(f"\n{game.display_name} — Ball Frequency ({last_n} draws)")
     print(f"  {'Ball':>4}  {'Drawn':>6}  {'Expected':>8}  {'Deviation':>10}  Status")
     print(f"  {'-'*50}")
     for row in summary:
@@ -241,13 +251,9 @@ def print_games_list(registry: dict):
         t.add_column("Draws")
         t.add_column("Ticket")
         for slug, game in registry.items():
-            t.add_row(
-                slug, game.display_name,
-                f"1–{game.main_pool}", str(game.main_pick),
-                f"1–{game.bonus_pool} (×{game.bonus_count})",
-                ", ".join(game.draw_days),
-                f"£{game.ticket_cost_gbp:.2f}",
-            )
+            t.add_row(slug, game.display_name, f"1–{game.main_pool}", str(game.main_pick),
+                      f"1–{game.bonus_pool} (×{game.bonus_count})",
+                      ", ".join(game.draw_days), f"£{game.ticket_cost_gbp:.2f}")
         _console.print(t)
     else:
         print("\nAvailable Games:")
