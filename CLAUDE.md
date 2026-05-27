@@ -1,33 +1,45 @@
-# SaaS Radar — Project Context
+# Daily SaaS & App Idea Scout — Project Context
 
-This repository contains a daily automated SaaS opportunity intelligence system.
+This repository contains the **Daily SaaS & App Idea Scout** — a research routine that finds profitable SaaS/app ideas and validates them against failure history and live market data.
 
-## What this project does
+## The Routine
 
-Every day it:
-1. Scrapes Reddit (`r/SaaS`, `r/microsaas`, `r/startups`) and Hacker News Show HN for new startup ideas
-2. Cross-checks each idea against **startups.rip** — a database of 1,739+ failed YC startups — to see if the idea already failed and why
-3. Validates each idea against **TrustMRR** live market data — verified MRR leaderboard and for-sale listings
-4. Scores each idea 1–10 with Claude and generates a ranked report
+The full routine is in **`daily_saas_scout_routine.md`** — copy its contents to use as your Claude prompt.
 
-## Running the daily routine
+### What it does (6 steps)
+
+1. **Reddit** — scrapes r/SaaS, r/microsaas, r/startups, r/AppIdeas, r/SideProject, r/indiehackers for new ideas (Apify or WebSearch fallback)
+2. **Twitter/X** — searches for building-in-public, MRR announcements, launched SaaS
+3. **Revenue sources** — IndieHackers, ProductHunt, SaaSHub, Starter Story, Acquire.com
+4. **TrustMRR** — fetches the live leaderboard (payment-verified MRR for 1,000+ startups) to identify hot categories and undervalued acquisitions
+5. **startups.rip** — cross-checks each idea against 1,739+ failed YC startups so you know what was already tried, why it failed, and what to do differently
+6. **14-point analysis** + ranked report written to `saas_ideas_report.md`
+
+### Output: `saas_ideas_report.md` sections
+
+- Executive summary (top 3 picks)
+- All ideas ranked by viability (1–10)
+- ⚠️ Failure Pattern Warnings (startups.rip data)
+- 📈 TrustMRR Live Market Pulse + undervalued acquisitions
+- ⚡ Quick Wins and 🚀 High Potential sections
+- All sources used
+
+## Python automation modules (optional)
+
+These can be used programmatically if you want to automate the pipeline without Claude running it interactively:
 
 ```bash
 cd analysis
-
-# Run once (testing)
+# Run once for testing
 python run_daily.py --now
 
-# Run now + loop daily at 08:00
+# Loop daily at 08:00
 python run_daily.py
-
-# Custom time
-python run_daily.py --time 07:30
 ```
 
 Required env vars:
 - `ANTHROPIC_API_KEY` — Claude API
-- `APIFY_TOKEN` — for scraping startups.rip and TrustMRR (JS-rendered sites)
+- `APIFY_TOKEN` — for scraping JS-rendered sites (startups.rip, TrustMRR)
 
 ## File map
 
