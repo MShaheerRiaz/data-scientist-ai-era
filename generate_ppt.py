@@ -301,16 +301,16 @@ def make_ee_skills_chart():
     ax.set_facecolor('#F4F6F9')
 
     skills = [
-        'Power Systems Analysis',
-        'HV/MV Electrical Design',
-        'Renewable Energy Systems',
-        'Power Electronics',
-        'Protection & Control',
-        'EMC Engineering',
-        'Smart Grid & Storage',
-        'Safety-Critical Eng.',
+        'Industrial Process Control',
+        'DCS / ESD Safety Systems',
+        'Power Conversion Systems',
+        'PLC Programming (Triconex)',
+        'Instrument Calibration',
+        'FPGA / VHDL Design',
+        'Battery ML / Predictive Maint.',
+        'DSP & Sensor Fusion',
     ]
-    relevance = [98, 95, 90, 88, 92, 80, 82, 96]
+    relevance = [96, 98, 92, 90, 88, 82, 90, 84]
     colors = ['#1B2D5B' if r > 90 else '#00A651' for r in relevance]
 
     y_pos = np.arange(len(skills))
@@ -323,7 +323,7 @@ def make_ee_skills_chart():
     ax.set_yticklabels(skills, fontsize=8.5)
     ax.set_xlim(0, 110)
     ax.set_xlabel('Relevance at SSE (%)', fontsize=8, color='#6B7280')
-    ax.set_title('EE Masters Skills → SSE Role Relevance', fontsize=10,
+    ax.set_title('Your Skills → SSE Role Relevance', fontsize=10,
                  fontweight='bold', color='#1B2D5B', pad=8)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -361,8 +361,10 @@ def slide_title(prs):
     # Title
     txt(sl, 'Interview Preparation Guide', 0.5, 2.2, 9, 0.85,
         size=32, bold=True, color=WHITE)
-    txt(sl, 'Electrical Engineering Masters Edition', 0.5, 2.95, 9, 0.5,
+    txt(sl, 'Prepared for Muhammad Shaheer Riaz', 0.5, 2.95, 9, 0.5,
         size=16, color=GREEN, bold=True)
+    txt(sl, 'MSc Electrical & Electronics Engineering · Anglia Ruskin University',
+        0.5, 3.4, 9, 0.4, size=11, color=RGBColor(0xAA,0xBB,0xDD))
 
     # Stat pills (manual boxes)
     pills = [
@@ -372,13 +374,13 @@ def slide_title(prs):
         ('£7M Invested Daily', 7.8),
     ]
     for label, x in pills:
-        rect(sl, x, 3.65, len(label)*0.11 + 0.3, 0.38, RGBColor(0x2B,0x45,0x80))
-        txt(sl, label, x+0.12, 3.68, len(label)*0.11+0.1, 0.32,
+        rect(sl, x, 3.95, len(label)*0.11 + 0.3, 0.38, RGBColor(0x2B,0x45,0x80))
+        txt(sl, label, x+0.12, 3.98, len(label)*0.11+0.1, 0.32,
             size=9, bold=True, color=WHITE)
 
     # Bottom note
-    txt(sl, 'Includes real candidate insights from TheStudentRoom · AptitudePrep · SSE Careers',
-        0.5, 6.85, 10, 0.4, size=9, color=RGBColor(0x88,0x99,0xBB), italic=True)
+    txt(sl, 'Tailored to your CV · Includes real candidate insights from TheStudentRoom · AptitudePrep · SSE Careers',
+        0.5, 6.85, 11, 0.4, size=9, color=RGBColor(0x88,0x99,0xBB), italic=True)
 
     # Right side: mini stat boxes
     stat_data = [('£33bn', '5-Year Investment Plan'), ('83,000+','Jobs Supported'),
@@ -388,6 +390,100 @@ def slide_title(prs):
         rect(sl, 10.0, y, 3.0, 1.15, RGBColor(0x22,0x3A,0x70))
         txt(sl, val, 10.1, y+0.08, 2.8, 0.55, size=24, bold=True, color=GREEN, align=PP_ALIGN.CENTER)
         txt(sl, lbl, 10.1, y+0.6, 2.8, 0.45, size=9, color=WHITE, align=PP_ALIGN.CENTER)
+    return sl
+
+
+def slide_candidate_profile(prs):
+    sl = blank_slide(prs)
+    rect(sl, 0, 0, 13.33, 7.5, LGREY)
+    section_header(sl, 'Your Profile', 'Meet the Candidate — Muhammad Shaheer Riaz',
+                   'MSc Electrical & Electronics Engineering (Merit expected) · Chelmsford, UK · IET Student Member')
+    nav_bar(sl, 0)
+
+    # Education box
+    rect(sl, 0.3, 1.55, 4.2, 2.7, WHITE)
+    rect(sl, 0.3, 1.55, 4.2, 0.42, NAVY)
+    txt(sl, '🎓  EDUCATION', 0.4, 1.6, 4.0, 0.32, size=10, bold=True, color=WHITE)
+    edu = ("MSc Electrical & Electronics Eng.\nAnglia Ruskin University (2025–26)\nMerit expected\n\n"
+           "Distinctions:\n• Industrial Process Control\n• Digital Systems (VHDL/FPGA)\n• Sensing & Sensor Fusion\n\n"
+           "BSc EE — Institute of Space\n& Technology, Pakistan")
+    txt(sl, edu, 0.42, 2.05, 4.0, 2.15, size=9, color=NAVY)
+
+    # Experience box
+    rect(sl, 4.7, 1.55, 4.2, 2.7, WHITE)
+    rect(sl, 4.7, 1.55, 4.2, 0.42, GREEN)
+    txt(sl, '🔧  INDUSTRIAL EXPERIENCE', 4.8, 1.6, 4.0, 0.32, size=10, bold=True, color=WHITE)
+    exp = ("Instrumentation & Control Engineer\nFauji Fertilizer Co. (FFC), Pakistan\nTurnaround + Internship placements\n\n"
+           "• DCS & ESD field wiring loop-checks\n• Triconex safety-system PLC programming\n"
+           "• Flow/pressure/level/temp calibration\n• Commissioning new I&C equipment\n• 100% accurate cable tagging")
+    txt(sl, exp, 4.82, 2.05, 4.0, 2.15, size=9, color=NAVY)
+
+    # Dissertation box
+    rect(sl, 9.1, 1.55, 4.0, 2.7, WHITE)
+    rect(sl, 9.1, 1.55, 4.0, 0.42, RGBColor(0x1F,0x5C,0x35))
+    txt(sl, '🔬  MSc DISSERTATION', 9.2, 1.6, 3.8, 0.32, size=10, bold=True, color=WHITE)
+    diss = ("Deep Learning for Predictive\nMaintenance in EV Li-Ion Batteries\n\n"
+            "ANN vs. LSTM architectures for\nbattery state-of-health & remaining\nuseful life prediction\n\n"
+            "NASA degradation datasets\nPython · TensorFlow/Keras · vs. Kalman Filter")
+    txt(sl, diss, 9.22, 2.05, 3.8, 2.15, size=9, color=NAVY)
+
+    # Key technical skills banner
+    rect(sl, 0.3, 4.45, 12.8, 0.42, NAVY)
+    txt(sl, 'CORE TECHNICAL SKILLS', 0.4, 4.5, 12.6, 0.32, size=10, bold=True, color=GREEN)
+
+    skills = [
+        'DCS / ESD Systems', 'PLC (Triconex, Ladder, FBD)', 'Power Conversion Systems',
+        'FPGA / VHDL Design', 'Field Instrument Calibration', 'PCB & Circuit Design',
+        'Python / ML (ANN, LSTM)', 'DSP & Sensor Fusion', 'HMI Design', 'MATLAB / Proteus',
+        'Embedded (Arduino, C++)', 'Motor Control Systems',
+    ]
+    for i, s in enumerate(skills):
+        col = i % 4
+        row = i // 4
+        x = 0.3 + col * 3.22
+        y = 5.0 + row * 0.62
+        rect(sl, x, y, 3.1, 0.5, WHITE)
+        rect(sl, x, y, 0.08, 0.5, GREEN)
+        txt(sl, s, x+0.18, y+0.1, 2.9, 0.32, size=9, bold=True, color=NAVY)
+
+    txt(sl, '💡 Your instrumentation/control + power conversion + battery ML profile maps onto three SSE divisions — see next slide.',
+        0.3, 6.92, 12.8, 0.35, size=8.5, bold=True, color=NAVY, italic=True)
+    return sl
+
+
+def slide_your_fit(prs):
+    sl = blank_slide(prs)
+    rect(sl, 0, 0, 13.33, 7.5, LGREY)
+    section_header(sl, 'Your Fit', 'Why You Are a Strong Fit for SSE',
+                   'Connecting your specific experience to SSE\'s divisions and flagship projects')
+    nav_bar(sl, 6)
+
+    fits = [
+        ('SSE Thermal', GREEN,
+         'Your DCS/ESD & Triconex safety-system experience at FFC',
+         'Peterhead Carbon Capture (910MW) and SSE\'s gas fleet run on exactly these control & '
+         'emergency-shutdown systems. Your hands-on plant turnaround and commissioning experience '
+         'is directly transferable — and your safety-critical mindset matches SSE\'s #1 value.'),
+        ('SSE Renewables', NAVY,
+         'Your EV Li-Ion battery ML dissertation + Power Conversion module',
+         'SSE is rapidly expanding grid-scale battery storage. Your ANN/LSTM predictive-maintenance '
+         'and state-of-health work applies directly to battery asset management, while Power '
+         'Conversion Systems underpins the inverters and HVDC converters in wind & storage.'),
+        ('SSEN Transmission', RGBColor(0x2D,0x3A,0x70),
+         'Your FPGA/VHDL, calibration & sensor-fusion skills',
+         'Protection relays, SCADA, substation commissioning and condition monitoring across the '
+         '£22bn Pathway to 2030 programme need exactly these digital-design, instrumentation and '
+         'signal-processing skills. Your calibration experience transfers to substation work.'),
+    ]
+
+    for i, (div, color, hook, body) in enumerate(fits):
+        y = 1.6 + i * 1.78
+        rect(sl, 0.3, y, 12.8, 1.62, WHITE)
+        rect(sl, 0.3, y, 3.0, 1.62, color)
+        txt(sl, div, 0.45, y+0.15, 2.75, 0.55, size=15, bold=True, color=WHITE)
+        txt(sl, '◆ Your edge', 0.45, y+0.78, 2.75, 0.3, size=8, bold=True, color=RGBColor(0xCC,0xEE,0xDD))
+        txt(sl, hook, 0.45, y+1.05, 2.75, 0.5, size=8, color=WHITE, italic=True)
+        txt(sl, body, 3.5, y+0.18, 9.4, 1.3, size=11, color=NAVY)
     return sl
 
 
@@ -659,33 +755,33 @@ def slide_ee_masters(prs):
     fig = make_ee_skills_chart()
     add_mpl_figure(sl, fig, 0.3, 1.55, 6.5, 5.1)
 
-    # Table on right
+    # Table on right — tailored to Shaheer's actual modules & experience
     rows = [
-        ('Power Systems Analysis', 'Load flow, fault studies — SSEN Transmission daily'),
-        ('HV/MV Electrical Design', '132kV–400kV substations — Pathway to 2030'),
-        ('Renewable Energy Systems', 'Turbine integration — SSE Renewables'),
-        ('Power Electronics', 'HVDC converters, inverters, battery storage'),
-        ('Protection & Control', 'Relay co-ord, SCADA — live HV network'),
-        ('EMC Engineering', 'Cable design, earthing in HV environments'),
-        ('Smart Grid & Storage', 'Battery management, demand-side response'),
-        ('Safety-Critical Eng.', 'IEC/BS standards, RAMS, HV site work'),
+        ('Industrial Process Control (Dist.)', 'Power station control — SSE Thermal, Peterhead'),
+        ('DCS / ESD Safety Systems', 'Emergency shutdown & control — SSE Thermal fleet'),
+        ('Power Conversion Systems', 'HVDC, inverters — offshore wind & battery storage'),
+        ('PLC Programming (Triconex)', 'Safety-critical automation across SSE assets'),
+        ('Field Instrument Calibration', 'Substation commissioning — SSEN Transmission'),
+        ('FPGA / VHDL Design', 'Protection relays & digital control systems'),
+        ('Battery ML Dissertation', 'Grid-scale storage health — SSE Renewables'),
+        ('DSP & Sensor Fusion (Dist.)', 'Condition monitoring of network assets'),
     ]
     rect(sl, 7.0, 1.55, 6.1, 5.3, WHITE)
-    txt(sl, 'EE Skill → SSE Role Mapping', 7.1, 1.6, 5.9, 0.38, size=11, bold=True, color=NAVY)
+    txt(sl, 'Your Skill → SSE Role Mapping', 7.1, 1.6, 5.9, 0.38, size=11, bold=True, color=NAVY)
     rect(sl, 7.0, 1.95, 6.1, 0.35, NAVY)
-    txt(sl, 'SKILL', 7.1, 2.0, 2.8, 0.28, size=8, bold=True, color=WHITE)
+    txt(sl, 'YOUR SKILL', 7.1, 2.0, 2.8, 0.28, size=8, bold=True, color=WHITE)
     txt(sl, 'SSE RELEVANCE', 9.85, 2.0, 3.2, 0.28, size=8, bold=True, color=WHITE)
 
     for i, (skill, rel) in enumerate(rows):
         y = 2.35 + i * 0.59
         bg = LGREY if i % 2 == 0 else WHITE
         rect(sl, 7.0, y, 6.1, 0.58, bg)
-        txt(sl, skill, 7.08, y+0.08, 2.75, 0.4, size=8.5, bold=True, color=NAVY)
+        txt(sl, skill, 7.08, y+0.08, 2.75, 0.4, size=8.3, bold=True, color=NAVY)
         txt(sl, rel, 9.87, y+0.05, 3.1, 0.48, size=7.8, color=NAVY)
 
     rect(sl, 7.0, 7.0, 6.1, 0.0, GREEN)
-    txt(sl, '💡 Name a project: "My power electronics module covered HVDC — directly relevant to Viking\'s Shetland interconnector."',
-        7.0, 6.88, 6.1, 0.38, size=7.5, bold=True, color=NAVY, italic=True)
+    txt(sl, '💡 Your line: "My Power Conversion module + battery dissertation map straight onto SSE\'s grid-scale storage and offshore inverters."',
+        7.0, 6.88, 6.1, 0.38, size=7.3, bold=True, color=NAVY, italic=True)
     return sl
 
 
@@ -742,29 +838,30 @@ def slide_star_questions(prs):
         txt(sl, word, 1.05, y+0.03, 1.2, 0.38, size=10, bold=True, color=WHITE)
         txt(sl, desc, 2.3, y+0.05, 2.9, 0.35, size=8.5, color=RGBColor(0xCC,0xDD,0xEE))
 
-    # Example
+    # Example — tailored to Shaheer's FFC safety experience
     rect(sl, 0.3, 4.65, 5.0, 2.05, RGBColor(0x22,0x3A,0x70))
-    txt(sl, 'EE Masters STAR Example:', 0.45, 4.72, 4.7, 0.32, size=9, bold=True, color=GREEN)
-    example = ('"During my Masters dissertation [S], I modelled transient stability of a '
-               'grid-connected wind farm [T]. I built a MATLAB/Simulink simulation and '
-               'proposed a modified converter control strategy [A], reducing fault settling '
-               'time by 23% — submitted to IEEE PES [R]." → Link to SSEN Transmission.')
+    txt(sl, 'Your STAR Example (Safety — FFC):', 0.45, 4.72, 4.7, 0.32, size=9, bold=True, color=GREEN)
+    example = ('"During a plant turnaround at FFC [S], I was responsible for loop-checking DCS '
+               'and ESD field wiring across multiple marshalling cabinets [T]. I systematically '
+               'verified every cable tag and termination before energising [A], achieving 100% '
+               'accurate tagging and helping minimise plant downtime with zero safety incidents [R]." '
+               '→ Link to SSE Thermal\'s safety-critical control systems.')
     txt(sl, example, 0.45, 5.05, 4.7, 1.58, size=8, color=WHITE, italic=True)
 
-    # Common questions
+    # Common questions — answers tailored to Shaheer's CV
     questions = [
         ('Why SSE / this division?',
-         'Reference: net zero mission, specific project (Dogger Bank / Peterhead / Pathway to 2030), EE skills match, £33bn scale'),
+         'Your DCS/ESD + power conversion + battery ML background → SSE Thermal control or Renewables storage; cite Peterhead / £33bn scale'),
         ('3 energy challenges facing SSE?',
          'Thermal: grid intermittency, CCS economics, hydrogen transition\nTransmission: N-S bottlenecks, supply chain lead times, planning'),
         ('Time you demonstrated SAFETY?',
-         'HV lab risk assessment, stopping unsafe work, pre-task briefing — link to SSE\'s #1 value explicitly'),
+         'Your FFC turnaround: loop-checking DCS/ESD wiring, 100% accurate cable tagging before energising — SSE\'s #1 value'),
         ('Complex engineering problem solved?',
-         'Final-year project, simulation, design trade-off — explain thinking process, not just the answer'),
+         'Your MSc dissertation: ANN vs LSTM for EV battery health, or Arduino-PLC module — explain your thinking process'),
         ('Example of teamwork?',
-         'Group design project, cross-discipline collaboration, adapting communication style for non-specialists'),
+         'Collaborating with senior engineers on FFC commissioning, or Hult Prize leadership — adapt style for non-specialists'),
         ('Energy sector in 10 years?',
-         'Offshore wind dominance, grid transformation (SSE\'s 80% bet), hydrogen, digitalisation, storage revolution'),
+         'Offshore wind dominance, grid transformation (SSE\'s 80% bet), hydrogen, digitalisation, battery storage revolution'),
         ('Questions to ask SSE?',
          '"What would you expect from me in the first 90 days?" — directly recommended by SSE\'s own recruiter blog'),
     ]
@@ -852,7 +949,7 @@ def slide_closing(prs):
         ('Projects', 'Dogger Bank · Viking · Peterhead CCS · Pathway to 2030'),
         ('Values', 'Safety (first) · Service · Efficiency · Sustainability · Excellence · Teamwork'),
         ('Process', 'Application → SHL Tests → Video Interview → Assessment Centre'),
-        ('Your Edge', 'EE Masters: power systems, HV design, protection, power electronics'),
+        ('Your Edge', 'DCS/ESD safety systems · power conversion · battery ML · calibration'),
     ]
     for i, (label, detail) in enumerate(summary):
         col = i % 2
@@ -878,6 +975,7 @@ if __name__ == '__main__':
 
     print("Building slides...")
     slide_title(prs);               print("  ✓ Title slide")
+    slide_candidate_profile(prs);   print("  ✓ Candidate Profile (your CV)")
     slide_company_overview(prs);    print("  ✓ Company Overview")
     slide_business_divisions(prs);  print("  ✓ Business Divisions")
     slide_key_projects(prs);        print("  ✓ Key Projects")
@@ -885,7 +983,8 @@ if __name__ == '__main__':
     slide_capacity_timeline(prs);   print("  ✓ Capacity & Timeline (bar + timeline chart)")
     slide_uk_impact(prs);           print("  ✓ UK Economic Impact (bar chart)")
     slide_values(prs);              print("  ✓ Company Values (radar chart)")
-    slide_ee_masters(prs);          print("  ✓ EE Masters Mapping (horizontal bar chart)")
+    slide_your_fit(prs);            print("  ✓ Why You Fit SSE (tailored)")
+    slide_ee_masters(prs);          print("  ✓ Your Skills Mapping (horizontal bar chart)")
     slide_interview_process(prs);   print("  ✓ Recruitment Process (funnel)")
     slide_star_questions(prs);      print("  ✓ STAR + Interview Questions")
     slide_checklist(prs);           print("  ✓ Checklist + Red Flags")
