@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tap &amp; Track — Bento Card</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React + ReactDOM + Babel (for in-browser JSX) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* ── NFC wave ripple: endless outward radiate with decreasing opacity ── */
+    @keyframes nfc-ripple {
+      0%   { transform: scale(0.35); opacity: 0; }
+      15%  { opacity: 0.9; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    .nfc-wave {
+      transform-origin: center;
+      animation: nfc-ripple 2.8s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+    }
+    /* Stagger each ring so the waves read as a continuous signal */
+    .nfc-wave-1 { animation-delay: 0s; }
+    .nfc-wave-2 { animation-delay: 0.7s; }
+    .nfc-wave-3 { animation-delay: 1.4s; }
+
+    /* Soft glow pulse on the NFC source dot */
+    @keyframes nfc-core {
+      0%, 100% { opacity: 0.85; }
+      50%      { opacity: 1; }
+    }
+    .nfc-core { animation: nfc-core 2.8s ease-in-out infinite; }
+
+    /* Card brightness lift on hover */
+    .bento-card {
+      transition: filter 0.45s ease, transform 0.45s ease, box-shadow 0.45s ease;
+    }
+    .bento-card:hover {
+      filter: brightness(1.07);
+      transform: translateY(-2px);
+      box-shadow: 0 24px 60px -24px rgba(16, 185, 129, 0.35);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-white flex items-center justify-center p-8">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useMemo } = React;
+
+    /**
+     * Border-only smartphone silhouette — pure stroke, no fill.
+     */
+    function PhoneSilhouette() {
+      return (
+        <svg
+          viewBox="0 0 160 320"
+          className="h-full w-auto text-slate-300"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {/* Body */}
+          <rect x="20" y="8" width="120" height="304" rx="26" />
+          {/* Screen inset */}
+          <rect x="30" y="40" width="100" height="240" rx="10" className="text-slate-200" />
+          {/* Speaker */}
+          <line x1="68" y1="24" x2="92" y2="24" />
+          {/* Home indicator */}
+          <line x1="62" y1="296" x2="98" y2="296" />
+        </svg>
+      );
+    }
+
+    /**
+     * Frosted glass panel overlapping half the phone, with a vibrant
+     * green NFC wave signal radiating outward.
+     */
+    function NfcGlassPanel() {
+      const rings = useMemo(() => [1, 2, 3], []);
+      return (
+        <div
+          className="absolute inset-y-6 right-0 w-1/2 rounded-2xl
+                     bg-white/40 backdrop-blur-md
+                     border border-white/60 ring-1 ring-emerald-100/50
+                     shadow-[0_8px_32px_-8px_rgba(16,185,129,0.25)]
+                     flex items-center justify-center overflow-hidden"
+        >
+          {/* subtle frosted sheen */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-emerald-50/30" />
+
+          <svg viewBox="0 0 120 120" className="relative w-3/4 h-3/4">
+            <defs>
+              <radialGradient id="nfcGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#10b981" stopOpacity="0.45" />
+                <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+
+            {/* Radiating wave rings (arcs opening to the left toward the phone) */}
+            {rings.map((n) => (
+              <circle
+                key={n}
+                className={`nfc-wave nfc-wave-${n}`}
+                cx="60"
+                cy="60"
+                r="42"
+                fill="none"
+                stroke="#10b981"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeDasharray="150 264"
+                strokeDashoffset="207"
+              />
+            ))}
+
+            {/* Source core */}
+            <circle cx="60" cy="60" r="26" fill="url(#nfcGlow)" />
+            <circle className="nfc-core" cx="60" cy="60" r="9" fill="#10b981" />
+            <path
+              d="M55 60a5 5 0 0 1 10 0"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+      );
+    }
+
+    function BentoCard() {
+      return (
+        <div
+          className="bento-card group relative aspect-square w-[380px] max-w-[90vw]
+                     rounded-3xl bg-white
+                     border border-slate-100
+                     shadow-[0_20px_50px_-20px_rgba(15,23,42,0.18)]
+                     ring-1 ring-slate-900/5
+                     p-8 flex flex-col overflow-hidden select-none"
+        >
+          {/* faint ambient glassmorphic backdrop */}
+          <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-emerald-100/40 blur-3xl" />
+
+          {/* Visual stage */}
+          <div className="relative flex-1 flex items-center justify-center">
+            <div className="relative h-[62%] flex items-center justify-center">
+              <PhoneSilhouette />
+              <NfcGlassPanel />
+            </div>
+          </div>
+
+          {/* Copy */}
+          <div className="relative mt-4">
+            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full
+                            bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-600
+                            ring-1 ring-inset ring-emerald-100">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              NFC
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
+              Tap &amp; Track
+            </h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+              Integrates natively with mobile wallets.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<BentoCard />);
+  </script>
+</body>
+</html>
