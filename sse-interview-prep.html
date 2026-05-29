@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SSE plc — Interview Preparation Guide</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --navy:        #1B2D5B;
+      --navy-light:  #243a78;
+      --green:       #00A651;
+      --green-light: #E6F7EE;
+      --green-mid:   #c3edda;
+      --grey:        #F4F6F9;
+      --grey-mid:    #e8edf4;
+      --text:        #1A1A2E;
+      --muted:       #6B7280;
+      --white:       #FFFFFF;
+      --border:      #dde3ee;
+      --shadow:      0 2px 12px rgba(27,45,91,0.10);
+      --radius:      10px;
+    }
+
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--white);
+      overflow-x: hidden;
+    }
+    h1, h2, h3, h4 { line-height: 1.25; font-weight: 700; }
+    a { color: var(--green); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    p { margin-bottom: 0.75rem; }
+    p:last-child { margin-bottom: 0; }
+    ul { padding-left: 1.25rem; }
+    li { margin-bottom: 0.3rem; }
+
+    /* ── Layout ── */
+    .container { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+    section { padding: 64px 0; }
+    section:nth-child(odd) { background: var(--grey); }
+    section:nth-child(even) { background: var(--white); }
+    .section-label {
+      display: inline-block;
+      background: var(--green);
+      color: var(--white);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      color: var(--navy);
+      margin-bottom: 10px;
+    }
+    .section-subtitle {
+      color: var(--muted);
+      font-size: 1rem;
+      margin-bottom: 40px;
+      max-width: 600px;
+    }
+
+    /* ── Hero ── */
+    #hero {
+      background: var(--navy);
+      color: var(--white);
+      padding: 56px 0 52px;
+      border-bottom: 5px solid var(--green);
+    }
+    .hero-logo {
+      font-size: 3.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--white);
+      line-height: 1;
+    }
+    .hero-logo span { color: var(--green); }
+    .hero-full-name {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 500;
+      margin-top: 4px;
+      margin-bottom: 20px;
+    }
+    .hero-title {
+      font-size: clamp(1.5rem, 3.5vw, 2.4rem);
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+    .hero-sub {
+      font-size: 1rem;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 28px;
+    }
+    .hero-pills { display: flex; flex-wrap: wrap; gap: 10px; }
+    .pill {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: var(--white);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 5px 14px;
+      border-radius: 20px;
+      letter-spacing: 0.04em;
+    }
+    .pill.green { background: var(--green); border-color: var(--green); }
+
+    /* ── Sticky Nav ── */
+    #sticky-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--navy);
+      transition: box-shadow 0.2s;
+    }
+    #sticky-nav.scrolled { box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0;
+      padding: 0;
+    }
+    .nav-inner a {
+      color: rgba(255,255,255,0.65);
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 14px 16px;
+      text-decoration: none;
+      transition: color 0.15s, background 0.15s;
+      white-space: nowrap;
+      display: block;
+      letter-spacing: 0.02em;
+    }
+    .nav-inner a:hover { color: var(--white); background: rgba(255,255,255,0.07); }
+    .nav-inner a.active {
+      color: var(--white);
+      border-bottom: 3px solid var(--green);
+    }
+
+    /* ── Stat Grid ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .stat-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .stat-card .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-card .stat-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .stat-card .stat-icon {
+      font-size: 1.6rem;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    /* ── Blockquote ── */
+    blockquote {
+      border-left: 4px solid var(--green);
+      padding: 16px 20px;
+      background: var(--green-light);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      margin: 24px 0;
+      font-style: italic;
+      font-size: 1.05rem;
+      color: var(--navy);
+    }
+    blockquote cite {
+      display: block;
+      font-style: normal;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 6px;
+      font-weight: 600;
+    }
+
+    /* ── Division Cards ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .division-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+    .division-card .card-top {
+      background: var(--navy);
+      padding: 18px 20px 14px;
+    }
+    .division-card .card-top .card-tag {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--green);
+      margin-bottom: 4px;
+    }
+    .division-card .card-top h3 {
+      color: var(--white);
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .division-card .card-body {
+      padding: 18px 20px;
+      flex: 1;
+    }
+    .division-card .card-desc {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-style: italic;
+    }
+    .division-card ul {
+      font-size: 0.88rem;
+      color: var(--text);
+      list-style: none;
+      padding: 0;
+    }
+    .division-card ul li {
+      padding-left: 16px;
+      position: relative;
+      margin-bottom: 5px;
+    }
+    .division-card ul li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--green);
+      font-size: 0.8rem;
+    }
+
+    /* ── Accordion ── */
+    .accordion { display: flex; flex-direction: column; gap: 10px; }
+    .acc-item {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .acc-trigger {
+      width: 100%;
+      background: none;
+      border: none;
+      text-align: left;
+      padding: 18px 20px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--navy);
+      transition: background 0.15s;
+    }
+    .acc-trigger:hover { background: var(--green-light); }
+    .acc-trigger.active { background: var(--green-light); color: var(--navy); }
+    .acc-icon {
+      width: 24px;
+      height: 24px;
+      background: var(--navy);
+      color: var(--white);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      transition: transform 0.25s, background 0.15s;
+    }
+    .acc-trigger.active .acc-icon {
+      transform: rotate(45deg);
+      background: var(--green);
+    }
+    .acc-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
+    }
+    .acc-content.open { max-height: 1200px; }
+    .acc-inner {
+      padding: 4px 20px 20px;
+      font-size: 0.92rem;
+      border-top: 1px solid var(--border);
+    }
+    .acc-inner ul { margin-top: 8px; }
+    .acc-inner li { margin-bottom: 6px; }
+    .acc-inner .highlight {
+      background: var(--green-light);
+      border-left: 3px solid var(--green);
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      margin-top: 12px;
+      font-size: 0.88rem;
+    }
+    .acc-trigger-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .project-num {
+      background: var(--navy);
+      color: var(--white);
+      font-size: 0.7rem;
+      font-weight: 700;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Investment & Impact ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+    .invest-timeline { list-style: none; padding: 0; }
+    .invest-timeline li {
+      padding: 14px 16px 14px 44px;
+      position: relative;
+      border-left: 2px solid var(--green);
+      margin-left: 12px;
+      margin-bottom: 4px;
+    }
+    .invest-timeline li::before {
+      content: attr(data-year);
+      position: absolute;
+      left: -40px;
+      top: 14px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--green);
+      background: var(--white);
+      padding: 2px 0;
+      white-space: nowrap;
+    }
+    .invest-timeline li .amount {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--navy);
+      display: block;
+      line-height: 1.1;
+    }
+    .invest-timeline li .desc {
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+    .invest-timeline .sub-items {
+      list-style: none;
+      padding: 8px 0 0 0;
+      margin: 0;
+    }
+    .invest-timeline .sub-items li {
+      border-left: none;
+      margin-left: 0;
+      padding: 2px 0 2px 16px;
+      font-size: 0.82rem;
+      color: var(--text);
+    }
+    .invest-timeline .sub-items li::before {
+      content: none;
+    }
+    .invest-timeline .sub-items li span {
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .impact-stats { display: flex; flex-direction: column; gap: 12px; }
+    .impact-box {
+      background: var(--navy);
+      color: var(--white);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .impact-box .ib-val {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--green);
+      white-space: nowrap;
+      min-width: 90px;
+    }
+    .impact-box .ib-desc {
+      font-size: 0.84rem;
+      color: rgba(255,255,255,0.8);
+      line-height: 1.4;
+    }
+    .green-banner {
+      background: var(--green);
+      color: var(--white);
+      padding: 20px 24px;
+      border-radius: var(--radius);
+      margin-top: 32px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* ── Values ── */
+    .values-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .value-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 16px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .value-initial {
+      width: 52px;
+      height: 52px;
+      background: var(--navy);
+      color: var(--white);
+      font-size: 1.5rem;
+      font-weight: 800;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+    }
+    .value-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+    .value-desc {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .doing-right {
+      background: var(--navy);
+      color: var(--white);
+      padding: 18px 24px;
+      border-radius: var(--radius);
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .doing-right span { color: var(--green); }
+
+    /* ── EE Masters Table ── */
+    .ee-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+      background: var(--white);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .ee-table thead tr { background: var(--navy); }
+    .ee-table thead th {
+      color: var(--white);
+      padding: 14px 18px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .ee-table tbody tr:nth-child(even) { background: var(--grey); }
+    .ee-table tbody tr:hover { background: var(--green-light); }
+    .ee-table tbody td {
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .ee-table tbody td:first-child { font-weight: 600; color: var(--navy); }
+    .ee-table tbody td:last-child { color: var(--text); font-size: 0.87rem; }
+    .ee-callout {
+      background: var(--green-light);
+      border-left: 4px solid var(--green);
+      padding: 16px 20px;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 0.9rem;
+    }
+    .ee-callout strong { color: var(--navy); }
+
+    /* ── Process Steps ── */
+    .process-steps { display: flex; flex-direction: column; gap: 0; }
+    .process-step {
+      display: flex;
+      gap: 20px;
+      position: relative;
+      padding-bottom: 28px;
+    }
+    .process-step:last-child { padding-bottom: 0; }
+    .step-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .step-num {
+      width: 40px;
+      height: 40px;
+      background: var(--navy);
+      color: var(--white);
+      font-weight: 800;
+      font-size: 1rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+    .step-line {
+      width: 2px;
+      flex: 1;
+      background: var(--green);
+      margin-top: 4px;
+    }
+    .process-step:last-child .step-line { display: none; }
+    .step-body { padding-top: 8px; flex: 1; }
+    .step-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+    .step-detail {
+      font-size: 0.87rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .step-detail strong { color: var(--text); }
+    .step-tip {
+      background: var(--green-light);
+      border: 1px solid var(--green-mid);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      color: var(--navy);
+      margin-top: 8px;
+      font-weight: 500;
+    }
+    .step-tip::before { content: '💡 '; }
+    .warning-box {
+      background: #fff3e0;
+      border: 1px solid #ffc107;
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      font-size: 0.88rem;
+      color: #7b5800;
+      margin-top: 24px;
+    }
+    .warning-box strong { color: #5a3e00; }
+
+    /* ── STAR Box ── */
+    .star-box {
+      background: var(--navy);
+      border-radius: var(--radius);
+      padding: 28px 28px 24px;
+      margin-bottom: 32px;
+      color: var(--white);
+    }
+    .star-box h3 {
+      font-size: 1.1rem;
+      color: var(--green);
+      margin-bottom: 16px;
+    }
+    .star-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .star-item {
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+    .star-letter {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--green);
+      line-height: 1;
+      display: block;
+    }
+    .star-word {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--white);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
+      display: block;
+    }
+    .star-sub {
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.55);
+      margin-top: 4px;
+    }
+    .star-example {
+      background: rgba(0,166,81,0.15);
+      border: 1px solid rgba(0,166,81,0.3);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.85);
+      line-height: 1.5;
+    }
+    .star-example strong { color: var(--green); }
+
+    /* ── Checklist ── */
+    .checklist { list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .checklist li {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px 12px 40px;
+      position: relative;
+      font-size: 0.88rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .checklist li::before {
+      content: '✓';
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      width: 20px;
+      height: 20px;
+      background: var(--green);
+      color: var(--white);
+      border-radius: 50%;
+      font-size: 0.7rem;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 20px;
+    }
+
+    /* ── Red Flags ── */
+    .redflags { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .redflags li {
+      background: #fff5f5;
+      border: 1px solid #ffc5c5;
+      border-radius: 8px;
+      padding: 12px 14px 12px 40px;
+      position: relative;
+      font-size: 0.88rem;
+    }
+    .redflags li::before {
+      content: '✗';
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      width: 20px;
+      height: 20px;
+      background: #e53e3e;
+      color: var(--white);
+      border-radius: 50%;
+      font-size: 0.7rem;
+      font-weight: 900;
+      text-align: center;
+      line-height: 20px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--navy);
+      color: rgba(255,255,255,0.65);
+      padding: 40px 0 32px;
+      border-top: 4px solid var(--green);
+      text-align: center;
+      font-size: 0.85rem;
+    }
+    footer .footer-brand {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--white);
+      margin-bottom: 8px;
+    }
+    footer .footer-brand span { color: var(--green); }
+    footer .footer-links { margin: 14px 0 8px; }
+    footer .footer-links a {
+      color: rgba(255,255,255,0.6);
+      font-size: 0.82rem;
+      margin: 0 10px;
+    }
+    footer .footer-links a:hover { color: var(--white); }
+
+    /* ── Utilities ── */
+    .text-green { color: var(--green); }
+    .text-navy  { color: var(--navy); }
+    .fw-700 { font-weight: 700; }
+    .mt-8  { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .mt-24 { margin-top: 24px; }
+    .mt-32 { margin-top: 32px; }
+    .mb-8  { margin-bottom: 8px; }
+    .mb-16 { margin-bottom: 16px; }
+    .mb-24 { margin-bottom: 24px; }
+    .mb-32 { margin-bottom: 32px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      section { padding: 44px 0; }
+      .stat-grid { grid-template-columns: 1fr; }
+      .two-col   { grid-template-columns: 1fr; }
+      .star-grid { grid-template-columns: repeat(2, 1fr); }
+      .checklist { grid-template-columns: 1fr; }
+      .values-grid { grid-template-columns: repeat(2, 1fr); }
+      .nav-inner a { font-size: 0.72rem; padding: 12px 10px; }
+    }
+    @media (max-width: 480px) {
+      .hero-logo { font-size: 2.4rem; }
+      .hero-title { font-size: 1.4rem; }
+      .values-grid { grid-template-columns: 1fr 1fr; }
+      .star-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ── Print ── */
+    @media print {
+      #sticky-nav { display: none !important; }
+      .acc-content { max-height: none !important; overflow: visible !important; }
+      section { background: white !important; padding: 24px 0; }
+      section + section { page-break-before: always; }
+      .impact-box { background: var(--navy) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { font-size: 11pt; line-height: 1.5; }
+      .stat-card, .division-card, .acc-item, .value-card { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════ HERO ══════════════════════════════════ -->
+<header id="hero">
+  <div class="container">
+    <div class="hero-logo">S<span>S</span>E</div>
+    <div class="hero-full-name">Scottish and Southern Energy plc</div>
+    <h1 class="hero-title">Interview Preparation Guide</h1>
+    <p class="hero-sub">Electrical Engineering Masters — Complete Company Deep Dive</p>
+    <div class="hero-pills">
+      <span class="pill">FTSE 100</span>
+      <span class="pill">HQ: Perth, Scotland</span>
+      <span class="pill green">£20.93bn Market Cap</span>
+      <span class="pill">83,000+ Jobs Supported</span>
+      <span class="pill">£7M Invested Daily</span>
+      <span class="pill">Est. 1998</span>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════ NAV ═══════════════════════════════════ -->
+<nav id="sticky-nav">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#overview"   class="nav-link">Company Overview</a>
+      <a href="#divisions"  class="nav-link">Business Divisions</a>
+      <a href="#projects"   class="nav-link">Key Projects</a>
+      <a href="#investment" class="nav-link">Investment &amp; Impact</a>
+      <a href="#values"     class="nav-link">Company Values</a>
+      <a href="#ee-masters" class="nav-link">Your EE Masters</a>
+      <a href="#interview"  class="nav-link">Interview Prep</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════ OVERVIEW ══════════════════════════════════ -->
+<section id="overview">
+  <div class="container">
+    <span class="section-label">Company Overview</span>
+    <h2 class="section-title">What is SSE plc?</h2>
+    <p class="section-subtitle">A FTSE 100 energy company at the heart of the UK's transition to net zero</p>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <span class="stat-icon">💷</span>
+        <div class="stat-value">£20.93bn</div>
+        <div class="stat-label">Market Capitalisation</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">👷</span>
+        <div class="stat-value">83,000+</div>
+        <div class="stat-label">Jobs Supported (direct + supply chain)</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">⚡</span>
+        <div class="stat-value">~£7M</div>
+        <div class="stat-label">Invested Every Single Day</div>
+      </div>
+    </div>
+
+    <blockquote>
+      "SSE's purpose is to provide the energy needed today while building a better world of energy for tomorrow."
+      <cite>— SSE plc, Annual Report</cite>
+    </blockquote>
+
+    <h3 class="mt-24 mb-8 text-navy">History &amp; Background</h3>
+    <p>SSE plc was formed in <strong>1998</strong> through the merger of <strong>Scottish Hydro-Electric</strong> and <strong>Southern Electric</strong>. The company is listed on the <strong>London Stock Exchange</strong> and is a constituent of the <strong>FTSE 100</strong> index, making it one of the UK's largest listed companies by market capitalisation.</p>
+    <p>Headquartered in <strong>Perth, Scotland</strong>, SSE has transformed from a regional electricity supplier into one of Europe's leading low-carbon energy companies. It operates across the UK and Ireland, with a growing international renewables presence.</p>
+    <p>SSE's strategic focus since 2018 has been a full pivot to <strong>low-carbon electricity infrastructure</strong> — it sold its household energy supply business to focus entirely on networks, renewables, and flexible generation. This makes it uniquely positioned as a pure-play energy transition business.</p>
+
+    <h3 class="mt-24 mb-8 text-navy">Core Mission</h3>
+    <p>SSE's mission centres on <strong>enabling the UK's transition to net zero</strong> by 2050. Its five-year £33bn investment plan (announced November 2025) is one of the largest single private infrastructure investment programmes in the UK — 80% directed at electricity grid infrastructure.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════ DIVISIONS ═════════════════════════════════ -->
+<section id="divisions">
+  <div class="container">
+    <span class="section-label">Business Divisions</span>
+    <h2 class="section-title">How SSE is Structured</h2>
+    <p class="section-subtitle">Five principal business units — know which one you're interviewing for</p>
+
+    <div class="cards-grid">
+
+      <div class="division-card">
+        <div class="card-top">
+          <div class="card-tag">Renewables</div>
+          <h3>SSE Renewables</h3>
+        </div>
+        <div class="card-body">
+          <p class="card-desc">Developing, building and operating renewable energy assets across the UK and Ireland</p>
+          <ul>
+            <li>Onshore &amp; offshore wind, hydro, solar, battery storage</li>
+            <li>Target: <strong>9 GW</strong> operational capacity by 2027</li>
+            <li>Long-term target: <strong>16 GW</strong> by 2032</li>
+            <li>Delivers <strong>25%+</strong> of UK's 2030 40GW offshore wind target</li>
+            <li>Flagship: Dogger Bank — world's largest offshore wind farm</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="division-card">
+        <div class="card-top">
+          <div class="card-tag">Transmission</div>
+          <h3>SSEN Transmission</h3>
+        </div>
+        <div class="card-body">
+          <p class="card-desc">Owns and operates the high-voltage electricity transmission network in the north of Scotland</p>
+          <ul>
+            <li>HV overhead lines, underground cables, subsea cables, substations</li>
+            <li><strong>£22bn</strong> planned investment over five years</li>
+            <li>11 major projects under <strong>Pathway to 2030</strong> programme</li>
+            <li>Delivers <strong>20%+</strong> of UK electricity networks investment</li>
+            <li>Critical for exporting Scottish renewables to GB grid</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="division-card">
+        <div class="card-top">
+          <div class="card-tag">Distribution</div>
+          <h3>SSEN Distribution</h3>
+        </div>
+        <div class="card-body">
+          <p class="card-desc">Distribution Network Operator (DNO) serving homes and businesses</p>
+          <ul>
+            <li>Serves <strong>3.9 million</strong> homes &amp; businesses</li>
+            <li>Coverage: central southern England &amp; north of Scotland</li>
+            <li><strong>£5bn</strong> planned over five years</li>
+            <li>Upgrading networks for EV charging, heat pumps, solar</li>
+            <li>Smart grid rollout and network digitalisation</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="division-card">
+        <div class="card-top">
+          <div class="card-tag">Thermal</div>
+          <h3>SSE Thermal</h3>
+        </div>
+        <div class="card-body">
+          <p class="card-desc">Flexible generation assets providing dispatchable power when renewables can't meet demand</p>
+          <ul>
+            <li>Gas generation, energy-from-waste, battery storage</li>
+            <li>Carbon Capture &amp; Storage (CCS) — Peterhead flagship</li>
+            <li>Hydrogen transition strategy (Triton Power acquisition)</li>
+            <li>Provides grid balancing &amp; frequency response services</li>
+            <li>Bridging technology to fully decarbonised grid</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="division-card">
+        <div class="card-top">
+          <div class="card-tag">B2B / Commercial</div>
+          <h3>SSE Energy Solutions</h3>
+        </div>
+        <div class="card-body">
+          <p class="card-desc">Low-carbon local energy infrastructure for businesses and local authorities</p>
+          <ul>
+            <li>EV charging infrastructure, heat networks, solar PV</li>
+            <li>Private wire networks for industrial customers</li>
+            <li>Energy-as-a-service for commercial &amp; industrial clients</li>
+            <li>Smart digital energy management solutions</li>
+            <li>Supporting decarbonisation of heat &amp; transport sectors</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════ PROJECTS ══════════════════════════════════ -->
+<section id="projects">
+  <div class="container">
+    <span class="section-label">Key Projects</span>
+    <h2 class="section-title">Flagship Programmes to Know</h2>
+    <p class="section-subtitle">Click each project to reveal the details — test your recall first, then check</p>
+
+    <div class="accordion">
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="proj1">
+          <span class="acc-trigger-label">
+            <span class="project-num">1</span>
+            Dogger Bank Wind Farm — World's Largest Offshore Wind Farm
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="proj1">
+          <div class="acc-inner">
+            <ul>
+              <li><strong>Location:</strong> North Sea, ~130km off the Yorkshire coast</li>
+              <li><strong>Partners:</strong> SSE Renewables (33.3%), Equinor (40%), Vårgrønn (26.7%)</li>
+              <li><strong>Scale:</strong> Phases A + B + C = <strong>3.6 GW</strong> combined; Phase D adds a further <strong>1.5 GW</strong></li>
+              <li><strong>Turbines:</strong> GE Haliade-X, among the world's most powerful offshore turbines</li>
+              <li><strong>Milestones:</strong> Foundation phase completed December 2025; Viking (separate project) already operational August 2024</li>
+              <li><strong>Phase D:</strong> SSE &amp; Equinor finalised seabed lease with Crown Estate; DCO application expected Summer 2026</li>
+              <li><strong>Significance:</strong> When fully operational, will power millions of UK homes; landmark project in UK's 40GW 2030 offshore wind target</li>
+            </ul>
+            <div class="highlight">
+              <strong>EE Relevance:</strong> Offshore electrical systems, export cable design, offshore substation engineering, dynamic cable analysis, grid integration studies — all core EE skills applied here.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="proj2">
+          <span class="acc-trigger-label">
+            <span class="project-num">2</span>
+            Viking Wind Farm — Europe's Largest Onshore Wind Farm
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="proj2">
+          <div class="acc-inner">
+            <ul>
+              <li><strong>Location:</strong> Shetland Islands, Scotland</li>
+              <li><strong>Capacity:</strong> 443 MW from 103 turbines</li>
+              <li><strong>Status:</strong> Entered full commercial operations in <strong>August 2024</strong></li>
+              <li><strong>Grid connection:</strong> Required a dedicated new <strong>HVDC interconnector</strong> from Shetland to the Scottish mainland — a first for the islands</li>
+              <li><strong>Significance:</strong> One of Europe's largest onshore wind farms; major milestone for SSE Renewables' capacity targets and Scottish energy transition</li>
+              <li><strong>Local impact:</strong> Significant economic benefits for Shetland community, long-term energy revenue sharing</li>
+            </ul>
+            <div class="highlight">
+              <strong>EE Relevance:</strong> HVDC transmission engineering, onshore substation design, wind turbine electrical systems, grid code compliance, power quality studies.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="proj3">
+          <span class="acc-trigger-label">
+            <span class="project-num">3</span>
+            Peterhead Carbon Capture Power Station — Scotland's First CCS Plant
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="proj3">
+          <div class="acc-inner">
+            <ul>
+              <li><strong>Location:</strong> Peterhead, Aberdeenshire, Scotland</li>
+              <li><strong>Partners:</strong> SSE Thermal &amp; Equinor</li>
+              <li><strong>Capacity:</strong> Up to <strong>910 MW</strong> gas-fired generation with carbon capture</li>
+              <li><strong>CO₂ capture:</strong> Up to <strong>1.5 million tonnes</strong> of CO₂ per year by 2030</li>
+              <li><strong>Cluster:</strong> Part of the <strong>Scottish Cluster</strong> (Acorn CCS project) — shared CO₂ transport &amp; storage infrastructure</li>
+              <li><strong>Hydrogen:</strong> Positioned to support Scotland's emerging low-carbon hydrogen economy</li>
+              <li><strong>Timeline:</strong> Could be operational by late 2020s; updated EIA published June 2025</li>
+              <li><strong>Controversy note:</strong> Updated EIA acknowledged climate pollution nearly 3× original estimates — demonstrates importance of transparent engineering assessment</li>
+            </ul>
+            <div class="highlight">
+              <strong>EE Relevance:</strong> CO₂ compression electrical systems, power plant grid interface, auxiliary electrical systems design, motor control centres, high-load industrial electrical engineering.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="proj4">
+          <span class="acc-trigger-label">
+            <span class="project-num">4</span>
+            SSEN Transmission — Pathway to 2030 Grid Programme
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="proj4">
+          <div class="acc-inner">
+            <ul>
+              <li><strong>Programme:</strong> 11 major electricity transmission infrastructure projects in north Scotland</li>
+              <li><strong>Investment:</strong> Core of SSE's <strong>£22bn</strong> transmission spend over five years</li>
+              <li><strong>Purpose:</strong> Expand and strengthen grid to export renewable energy generated in Scotland to the rest of Great Britain</li>
+              <li><strong>Infrastructure types:</strong> New overhead lines (OHL), underground cables, HVAC &amp; HVDC substations, transformers, protection upgrades</li>
+              <li><strong>Scale:</strong> The transmission network currently includes thousands of km of overhead line, cable, and hundreds of substations</li>
+              <li><strong>Regulatory context:</strong> Governed by OFGEM's RIIO-T2 and future RIIO-T3 price control frameworks — understanding of regulatory revenue models is useful</li>
+            </ul>
+            <div class="highlight">
+              <strong>EE Relevance:</strong> This is core electrical engineering territory — substation design, HV cable engineering, protection &amp; control systems, transformer specification, power flow studies, fault level analysis, EMC. An EE Masters graduate is directly employable on these projects.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════ INVESTMENT & IMPACT ═════════════════════════ -->
+<section id="investment">
+  <div class="container">
+    <span class="section-label">Investment &amp; Impact</span>
+    <h2 class="section-title">SSE's Role in Transforming the UK</h2>
+    <p class="section-subtitle">The numbers that put SSE's ambition in context</p>
+
+    <div class="two-col">
+      <div>
+        <h3 class="text-navy mb-16">Investment Plans</h3>
+        <ul class="invest-timeline">
+          <li data-year="2026">
+            <span class="amount">£12.5bn</span>
+            <span class="desc">Net Zero Acceleration Programme (original plan to FY2026)</span>
+          </li>
+          <li data-year="2030">
+            <span class="amount">£33bn</span>
+            <span class="desc">Fully-funded five-year investment plan announced November 2025 (to FY2030)</span>
+            <ul class="sub-items">
+              <li><span>£22bn</span> → SSEN Transmission</li>
+              <li><span>£5bn</span> → SSEN Distribution</li>
+              <li><span>£4bn</span> → SSE Renewables</li>
+              <li><span>£2bn</span> → SSE Thermal + other</li>
+              <li><span>80%</span> allocated to grid infrastructure</li>
+            </ul>
+          </li>
+          <li data-year="Daily">
+            <span class="amount">~£7M</span>
+            <span class="desc">Invested every single day across the business</span>
+          </li>
+          <li data-year="Target">
+            <span class="amount">16 GW</span>
+            <span class="desc">Renewable capacity target by 2032 — a fivefold increase from current levels</span>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-navy mb-16">UK Economic Impact</h3>
+        <div class="impact-stats">
+          <div class="impact-box">
+            <div class="ib-val">£9.7bn</div>
+            <div class="ib-desc">Gross Value Added (GVA) contributed to the UK economy annually</div>
+          </div>
+          <div class="impact-box">
+            <div class="ib-val">83,000+</div>
+            <div class="ib-desc">Jobs supported directly and through supply chains across the UK</div>
+          </div>
+          <div class="impact-box">
+            <div class="ib-val">£3.4bn</div>
+            <div class="ib-desc">Generated for the Scottish economy as investment accelerates</div>
+          </div>
+          <div class="impact-box">
+            <div class="ib-val">25%+</div>
+            <div class="ib-desc">Of the UK Government's 2030 40GW offshore wind target delivered by SSE</div>
+          </div>
+          <div class="impact-box">
+            <div class="ib-val">20%+</div>
+            <div class="ib-desc">Of all upcoming UK electricity networks investment handled by SSE</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="green-banner mt-32">
+      SSE's £33bn plan makes it one of the single largest investors in UK infrastructure — larger than most government departments' annual capital budgets. You are applying to a company building the backbone of Britain's energy future.
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════ VALUES ══════════════════════════════════ -->
+<section id="values">
+  <div class="container">
+    <span class="section-label">Company Values</span>
+    <h2 class="section-title">SSE SET — What SSE Stands For</h2>
+    <p class="section-subtitle">These values underpin every competency question. Know them cold.</p>
+
+    <div class="values-grid">
+      <div class="value-card">
+        <div class="value-initial">S</div>
+        <div class="value-name">Safety</div>
+        <div class="value-desc">The number one value. Safety is non-negotiable in HV environments. Always mention it first if asked about values.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-initial">S</div>
+        <div class="value-name">Service</div>
+        <div class="value-desc">Serving communities, customers, stakeholders, and the public interest above commercial gain alone.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-initial">E</div>
+        <div class="value-name">Efficiency</div>
+        <div class="value-desc">Operational excellence and responsible stewardship of capital — critical when spending £7M a day.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-initial">S</div>
+        <div class="value-name">Sustainability</div>
+        <div class="value-desc">Leading the net zero transition. Every investment decision is judged against long-term environmental impact.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-initial">E</div>
+        <div class="value-name">Excellence</div>
+        <div class="value-desc">Setting and maintaining the highest engineering and professional standards across all business units.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-initial">T</div>
+        <div class="value-name">Teamwork</div>
+        <div class="value-desc">Collaborative culture across multidisciplinary teams — engineers, project managers, commercial, policy.</div>
+      </div>
+    </div>
+
+    <div class="doing-right">
+      Underpinning all six values: <span>"Doing the Right Thing"</span> — SSE's leadership ethos for both personal and professional conduct
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════ EE MASTERS ══════════════════════════════════ -->
+<section id="ee-masters">
+  <div class="container">
+    <span class="section-label">Your EE Masters</span>
+    <h2 class="section-title">How Your Degree is Directly Relevant</h2>
+    <p class="section-subtitle">Map every skill from your Masters to a real SSE project or need</p>
+
+    <table class="ee-table">
+      <thead>
+        <tr>
+          <th>EE Masters Skill</th>
+          <th>Relevance at SSE — Projects &amp; Roles</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Power Systems Analysis</td>
+          <td>Load flow studies, fault level analysis, voltage stability — directly used by SSEN Transmission &amp; Distribution engineers every day</td>
+        </tr>
+        <tr>
+          <td>HV/MV Electrical Design</td>
+          <td>Substation design (132kV–400kV), overhead line ratings, transformer specification across SSEN's 11 Pathway to 2030 projects</td>
+        </tr>
+        <tr>
+          <td>Renewable Energy Systems</td>
+          <td>Wind turbine electrical systems, turbine-grid integration, power curve analysis — core SSE Renewables engineering work</td>
+        </tr>
+        <tr>
+          <td>Power Electronics</td>
+          <td>HVDC converters (Viking's Shetland link), inverters for offshore wind, battery storage systems, reactive power compensation</td>
+        </tr>
+        <tr>
+          <td>Protection &amp; Control</td>
+          <td>Relay co-ordination, distance/differential protection for HV lines, SCADA and energy management systems across the network</td>
+        </tr>
+        <tr>
+          <td>Electromagnetic Compatibility</td>
+          <td>Cable design in HV environments, switchgear interference, earthing &amp; bonding studies — safety-critical for live HV work</td>
+        </tr>
+        <tr>
+          <td>Smart Grid &amp; Energy Storage</td>
+          <td>Battery management systems, grid-scale storage integration, demand-side response — growing priority across SSE's portfolio</td>
+        </tr>
+        <tr>
+          <td>Engineering Project Management</td>
+          <td>Managing capital-intensive projects (£100M–£1bn+ scale), contractor interfaces, programme management at SSEN</td>
+        </tr>
+        <tr>
+          <td>Safety-Critical Engineering</td>
+          <td>IEC/BS standards application, risk assessment, RAMS, safe isolation procedures — fundamental to working at HV sites</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="ee-callout">
+      <strong>Interview technique:</strong> Don't just list skills — link each one to a named SSE project or challenge. For example: <em>"My power electronics module covered HVDC converter control, which is directly relevant to the Viking Wind Farm's Shetland interconnector and SSE's growing offshore portfolio."</em>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════ INTERVIEW PREP ══════════════════════════════ -->
+<section id="interview">
+  <div class="container">
+    <span class="section-label">Interview Prep</span>
+    <h2 class="section-title">Ace the Interview — From Real Candidates</h2>
+    <p class="section-subtitle">Tips sourced from TheStudentRoom, AptitudePrep, and SSE's own recruiter guidance</p>
+
+    <!-- Process Steps -->
+    <h3 class="text-navy mb-24">The Full Recruitment Process</h3>
+    <div class="process-steps mb-32">
+      <div class="process-step">
+        <div class="step-indicator">
+          <div class="step-num">1</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-title">Online Application</div>
+          <div class="step-detail">CV submission + motivational questions about why SSE and your chosen division. About <strong>200 graduates hired per year</strong> — competitive but achievable.</div>
+          <div class="step-tip">Tailor your motivation to the specific business unit (Transmission, Renewables, Distribution, Thermal). Generic answers get screened out.</div>
+        </div>
+      </div>
+      <div class="process-step">
+        <div class="step-indicator">
+          <div class="step-num">2</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-title">Online Tests (SHL) — The Hardest Stage for Many</div>
+          <div class="step-detail">
+            <strong>Part A:</strong> Situational Judgement Test (SJT) — 16 questions. Work-based scenarios testing alignment with SSE's values. Answer honestly; don't game it.<br><br>
+            <strong>Part B:</strong> General Ability Test (SHL) — 24 questions of numerical, analytical and deductive reasoning. <em>Described by candidates as "absolutely brutal / time-pressured — timed out at Q8."</em><br><br>
+            No verbal reasoning component for engineering roles.
+          </div>
+          <div class="step-tip">Practice at shl.com — use their exact test format. Focus on speed as much as accuracy. The SHL test is the same format used by NatWest, KPMG etc.</div>
+        </div>
+      </div>
+      <div class="process-step">
+        <div class="step-indicator">
+          <div class="step-num">3</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-title">Video Interview</div>
+          <div class="step-detail">
+            4 questions. <strong>3 minutes to think</strong>, <strong>4 minutes to answer</strong> each. Can be pre-recorded or live.<br><br>
+            <strong>Real questions asked (from TheStudentRoom candidates):</strong>
+            <ul style="margin-top:8px;">
+              <li>"Why SSE Thermal / [your chosen division]? What do you seek to obtain from the role?"</li>
+              <li>"Name 3 energy challenges currently facing SSE [your division]"</li>
+              <li>Competency: a time you demonstrated <strong>safety</strong></li>
+              <li>Competency: a time you showed <strong>initiative</strong></li>
+            </ul>
+          </div>
+          <div class="step-tip">Ensure good lighting, professional background, test your audio. Candidates who passed say: be yourself, communicate clearly, and reference the specific division.</div>
+        </div>
+      </div>
+      <div class="process-step">
+        <div class="step-indicator">
+          <div class="step-num">4</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-title">Assessment Centre</div>
+          <div class="step-detail">
+            Virtual or in-person. Includes: <strong>group discussion, individual presentation</strong> (brief is intentionally vague — structure it yourself), <strong>role-play scenario</strong>, possibly a final technical interview.<br><br>
+            Candidates noted the Transmission interview was <em>"more technical than expected."</em> The presentation brief gives minimal direction — prepare to make your own structure with an intro, 3 key points, and a recommendation.
+          </div>
+          <div class="step-tip">Ask the recruiter in advance: "Can you tell me the format of the assessment centre?" — SSE recruiters encourage this and can share example questions or grant extra time for reasonable adjustments.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="warning-box">
+      <strong>⚠ Visa Sponsorship:</strong> SSE graduate engineering roles currently fall below the Skilled Worker minimum salary threshold. <strong>No visa sponsorship is available</strong> for graduate engineering positions. Confirm your right to work in the UK before applying.
+    </div>
+
+    <!-- STAR Technique -->
+    <h3 class="text-navy mt-32 mb-16">The STAR Technique — SSE's Official Method</h3>
+    <div class="star-box">
+      <h3>Structure every competency answer using STAR</h3>
+      <div class="star-grid">
+        <div class="star-item">
+          <span class="star-letter">S</span>
+          <span class="star-word">Situation</span>
+          <div class="star-sub">Set the scene — what was the context, when, where?</div>
+        </div>
+        <div class="star-item">
+          <span class="star-letter">T</span>
+          <span class="star-word">Task</span>
+          <div class="star-sub">What was your specific responsibility or challenge?</div>
+        </div>
+        <div class="star-item">
+          <span class="star-letter">A</span>
+          <span class="star-word">Action</span>
+          <div class="star-sub">What did YOU specifically do? (Use "I", not "we")</div>
+        </div>
+        <div class="star-item">
+          <span class="star-letter">R</span>
+          <span class="star-word">Result</span>
+          <div class="star-sub">What was the outcome? Quantify if possible.</div>
+        </div>
+      </div>
+      <div class="star-example">
+        <strong>EE Masters example:</strong> "During my Masters dissertation [S], I was tasked with modelling the transient stability of a grid-connected wind farm under fault conditions [T]. I implemented a dynamic simulation in MATLAB/Simulink, validated against published IEEE test cases, and proposed a modified control strategy for the turbine converter [A]. This reduced the settling time after a fault by 23% and formed the basis of a paper submitted to IEEE PES [R]." — then link it to SSE's grid stability work at SSEN Transmission.
+      </div>
+    </div>
+
+    <!-- Common Questions Accordion -->
+    <h3 class="text-navy mb-16">Common Interview Questions — Model Answer Structures</h3>
+    <div class="accordion mb-32">
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="q1">
+          <span class="acc-trigger-label">
+            <span class="project-num">Q</span>
+            "Why do you want to work for SSE / why this division?"
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="q1">
+          <div class="acc-inner">
+            <p><strong>What SSE is looking for:</strong> Genuine knowledge of the company and specific division, aligned values, long-term ambition, not generic "I like renewables."</p>
+            <p class="mt-8"><strong>Structure your answer around:</strong></p>
+            <ul>
+              <li>SSE's unique position as a pure-play energy transition business (not a legacy generalist)</li>
+              <li>Specific project relevant to your division (Dogger Bank for Renewables, Pathway to 2030 for Transmission, Peterhead for Thermal)</li>
+              <li>The scale: £33bn plan, £7M/day — you want to work somewhere making a real impact, not incremental change</li>
+              <li>How your EE Masters skills map directly to SSE's engineering needs</li>
+              <li>SSE's progression: professional chartership (IET/IMechE), 200+ graduates, structured development</li>
+            </ul>
+            <div class="highlight">Avoid: "I'm passionate about renewable energy" with no specifics. That applies to 1,000 other candidates. Name the project. Name the technology.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="q2">
+          <span class="acc-trigger-label">
+            <span class="project-num">Q</span>
+            "Name 3 energy challenges currently facing SSE / your division"
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="q2">
+          <div class="acc-inner">
+            <p><strong>This question was reported by real candidates</strong> in video interviews for SSE Thermal and other divisions. Prepare your three for your specific division.</p>
+            <p class="mt-8"><strong>For SSE Thermal / Flexible Generation:</strong></p>
+            <ul>
+              <li><strong>Grid intermittency:</strong> Renewables can't always meet demand — flexible dispatchable generation is essential but must decarbonise</li>
+              <li><strong>Carbon capture economics:</strong> CCS is technically proven but financing a first-of-kind commercial CCS plant (Peterhead) at scale is complex</li>
+              <li><strong>Hydrogen transition:</strong> Converting gas infrastructure to hydrogen-ready by the late 2020s requires new engineering standards</li>
+            </ul>
+            <p class="mt-8"><strong>For SSEN Transmission / Distribution:</strong></p>
+            <ul>
+              <li><strong>Grid constraint:</strong> North–south transmission bottlenecks limit how much Scottish renewable power reaches English demand centres</li>
+              <li><strong>Supply chain capacity:</strong> Substation equipment (transformers, switchgear) has 2–3 year lead times — managing procurement at scale</li>
+              <li><strong>Planning permission:</strong> New OHL and substation infrastructure faces community opposition, delaying projects</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="q3">
+          <span class="acc-trigger-label">
+            <span class="project-num">Q</span>
+            "Tell me about a time you demonstrated safety"
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="q3">
+          <div class="acc-inner">
+            <p><strong>Why it matters:</strong> Safety is SSE's <em>number one value</em>. A weak answer here is a red flag regardless of technical brilliance. This is the most important competency question.</p>
+            <p class="mt-8"><strong>STAR structure ideas for EE candidates:</strong></p>
+            <ul>
+              <li>HV laboratory work — following lock-out/tag-out procedures, conducting a pre-task risk assessment before energising equipment</li>
+              <li>Identifying a hazard during a project (e.g. insufficient insulation clearance in a design) and stopping work to escalate</li>
+              <li>Industrial placement or summer job where you observed or contributed to a safety briefing / tool-box talk</li>
+              <li>Research or lab work where you designed the safety case for operating at elevated voltage or current</li>
+            </ul>
+            <div class="highlight">
+              Close your answer by connecting it to SSE: <em>"This experience reinforced for me that in an environment like SSE's — where engineers work on 400kV substations and offshore platforms — a safety-first culture isn't just important, it's what prevents serious harm."</em>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="q4">
+          <span class="acc-trigger-label">
+            <span class="project-num">Q</span>
+            "Describe a complex engineering problem you solved"
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="q4">
+          <div class="acc-inner">
+            <p><strong>What they're testing:</strong> Analytical thinking, engineering judgement, structured problem-solving, and your ability to explain technical concepts clearly to a mixed audience.</p>
+            <p class="mt-8"><strong>Ideal sources from EE Masters study:</strong></p>
+            <ul>
+              <li>Final-year dissertation / research project — power system simulation, converter design, protection study</li>
+              <li>A challenging coursework where your initial approach failed and you adapted</li>
+              <li>A group design challenge with competing constraints (cost vs. performance vs. reliability)</li>
+              <li>Any real-world placement or project involving measurement, analysis, and a recommended solution</li>
+            </ul>
+            <p class="mt-8"><strong>Tips:</strong> Don't over-explain the technical depth to the point the interviewer is lost. Explain the problem in plain language first, then the method, then the result. Show your <em>thinking process</em> — this is what differentiates a Masters graduate.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="q5">
+          <span class="acc-trigger-label">
+            <span class="project-num">Q</span>
+            "Give an example of teamwork on a technical project"
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="q5">
+          <div class="acc-inner">
+            <p><strong>What they're testing:</strong> Communication, collaboration across disciplines, conflict resolution, your role within a team (not just as a leader but as a reliable contributor).</p>
+            <ul class="mt-8">
+              <li>Group design project at university — describe your specific role and how you handled disagreements on technical approach</li>
+              <li>Mention interdisciplinary aspects if relevant (working with software or mechanical engineers)</li>
+              <li>If you had to explain your EE work to non-specialists in the team, highlight that — SSE teams are multidisciplinary</li>
+            </ul>
+            <div class="highlight">SSE explicitly looks for candidates who are "flexible and agile" and can "address knowledge gaps" — demonstrating you adapted your communication style for different team members scores highly.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="q6">
+          <span class="acc-trigger-label">
+            <span class="project-num">Q</span>
+            "Where do you see the energy sector in 10 years?"
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="q6">
+          <div class="acc-inner">
+            <p><strong>What they're testing:</strong> Genuine interest in the industry, strategic awareness, ability to connect macro trends to engineering implications.</p>
+            <p class="mt-8"><strong>Strong answer elements:</strong></p>
+            <ul>
+              <li><strong>Offshore wind dominance:</strong> SSE targets 16GW by 2032; UK government target is 50GW by 2030 — offshore will be the backbone of UK generation</li>
+              <li><strong>Grid transformation:</strong> The transmission and distribution networks will require more investment than the generation fleet — exactly where SSE is directing 80% of its £33bn</li>
+              <li><strong>Hydrogen economy:</strong> Green hydrogen and CCS will decarbonise industrial processes and provide seasonal storage — SSE Thermal is positioning for this</li>
+              <li><strong>Digitalisation &amp; AI:</strong> Smart grid, real-time network optimisation, predictive maintenance will change how network engineers work</li>
+              <li><strong>Energy storage:</strong> Battery storage at grid scale will fundamentally change how the system balances supply and demand without gas peakers</li>
+            </ul>
+            <div class="highlight">Anchor your answer to SSE: <em>"SSE's £33bn investment plan is essentially a bet on that infrastructure future — and I want to be one of the engineers building it."</em></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-trigger" data-target="q7">
+          <span class="acc-trigger-label">
+            <span class="project-num">Q</span>
+            Questions to ask SSE at the end of your interview
+          </span>
+          <span class="acc-icon">+</span>
+        </button>
+        <div class="acc-content" id="q7">
+          <div class="acc-inner">
+            <p>SSE recruiters specifically recommend asking this question — it shows you're evaluating them as much as they're evaluating you:</p>
+            <ul class="mt-8">
+              <li><em>"If I were successful, what would you expect from me within the first 90 days?"</em> — recommended directly by SSE's own recruiter blog</li>
+              <li><em>"Which of the Pathway to 2030 projects would a graduate in this team have exposure to earliest?"</em></li>
+              <li><em>"How is the team structured between office and site-based work in this role?"</em></li>
+              <li><em>"What does the path to IET chartership look like from this graduate programme?"</em></li>
+              <li><em>"How is SSE thinking about the skills pipeline for the RIIO-T3 period and the scale-up beyond 2030?"</em></li>
+            </ul>
+            <div class="highlight">Avoid asking about salary, holidays, or anything that's in the job description. Ask questions that prove you've done deeper research than the job advert.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Key Facts Checklist -->
+    <h3 class="text-navy mb-16">Key Facts to Drop Naturally in the Interview</h3>
+    <ul class="checklist mb-32">
+      <li>Know your exact SSE division and its lead projects by name</li>
+      <li>Name-drop: Dogger Bank, Viking Wind Farm, Peterhead CCS, Pathway to 2030</li>
+      <li>Cite the £33bn five-year plan and its 80% grid allocation</li>
+      <li>"Safety is SSE's number one value" — say this if asked about values</li>
+      <li>Use "energy transition" and "net zero" naturally and confidently</li>
+      <li>SSE targets <strong>16 GW</strong> renewable capacity by 2032</li>
+      <li>SSE delivers 25%+ of UK's 2030 40GW offshore wind target</li>
+      <li>83,000+ jobs supported — SSE is a major UK economic engine</li>
+      <li>Grid intermittency makes flexible generation + storage essential</li>
+      <li>Ask: "What would you expect from me in the first 90 days?"</li>
+    </ul>
+
+    <!-- Red Flags -->
+    <h3 class="text-navy mb-16">Red Flags to Avoid</h3>
+    <ul class="redflags">
+      <li><strong>Not knowing which SSE business unit you applied for</strong> — this is a basic disqualifier in video interviews</li>
+      <li><strong>Generic "I like renewable energy" answers</strong> — without naming specific projects, technologies, or SSE investment plans</li>
+      <li><strong>Confusing SSE plc with Stockholm School of Economics</strong> — a real pitfall if you Google "SSE" without context</li>
+      <li><strong>Bluffing on technical questions</strong> — SSE values honesty. Say "I haven't worked on that specifically, but I'd approach it by..." rather than blagging</li>
+      <li><strong>Not preparing STAR examples in advance</strong> — the video interview gives only 3 minutes to think, which is not enough to improvise a strong structured answer</li>
+      <li><strong>Overlooking safety</strong> — candidates who don't demonstrate a genuine safety mindset are unlikely to progress in an HV engineering environment</li>
+    </ul>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════ FOOTER ════════════════════════════════════ -->
+<footer>
+  <div class="container">
+    <div class="footer-brand">S<span>S</span>E plc — Interview Preparation Guide</div>
+    <p>Compiled from SSE plc public communications, annual reports, investor presentations, and community interview experiences from TheStudentRoom, AptitudePrep, and SSE's official careers blog.</p>
+    <div class="footer-links">
+      <a href="index.html">← Back to Portfolio</a>
+      <a href="https://www.sse.com" target="_blank" rel="noopener">sse.com</a>
+      <a href="https://careers.sse.com" target="_blank" rel="noopener">SSE Careers</a>
+    </div>
+    <p>May 2026 · For interview preparation purposes only</p>
+  </div>
+</footer>
+
+<script>
+  // ── Accordion ──
+  document.querySelectorAll('.acc-trigger').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-target');
+      const content  = document.getElementById(targetId);
+      const isOpen   = content.classList.contains('open');
+
+      // Close all
+      document.querySelectorAll('.acc-content').forEach(c => c.classList.remove('open'));
+      document.querySelectorAll('.acc-trigger').forEach(b => b.classList.remove('active'));
+
+      // Open clicked (if it was closed)
+      if (!isOpen) {
+        content.classList.add('open');
+        btn.classList.add('active');
+      }
+    });
+  });
+
+  // ── Sticky nav shadow on scroll ──
+  const nav = document.getElementById('sticky-nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 60);
+  }, { passive: true });
+
+  // ── Smooth scroll ──
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', e => {
+      const target = document.querySelector(anchor.getAttribute('href'));
+      if (target) {
+        e.preventDefault();
+        const offset = nav.offsetHeight + 8;
+        const top = target.getBoundingClientRect().top + window.pageYOffset - offset;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    });
+  });
+
+  // ── Active nav link via IntersectionObserver ──
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks  = document.querySelectorAll('.nav-link');
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id);
+        });
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+
+  sections.forEach(section => observer.observe(section));
+</script>
+
+</body>
+</html>
