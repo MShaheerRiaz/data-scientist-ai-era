@@ -159,6 +159,44 @@ This was your specific question — here's the real picture:
 **Bottom line:** Buy from the §4 suppliers, keep every invoice in an organised
 folder (digital + backup), and you're covered for both eBay's checks and HMRC.
 
+### "Is buying from a wholesaler enough to list — or do I need brand approval?"
+
+This is the question that trips up every beginner, because **eBay and Amazon work
+in opposite ways.**
+
+**eBay = open door, checked only if there's a problem.**
+- There is **no upfront brand-approval step.** Open a business account, create a
+  listing, it goes live the same day. Nobody pre-approves you.
+- Your wholesaler invoice is a **safety net, not an entry ticket** — you only
+  produce it *if* eBay challenges you (a buyer claims a fake, or a brand reports
+  the listing). Then you show it and you're fine.
+- The real risk is **VeRO** (Verified Rights Owner): some brands register with
+  eBay so they can have listings of their products removed — even genuine ones.
+  Repeat strikes can suspend the account. So on eBay the danger isn't "getting
+  approved," it's "picking a protected brand." **Check eBay's VeRO list before
+  listing any branded item.**
+
+**Amazon = locked door, approval required first.**
+- Many brands/categories (beauty, grocery, Nike, Samsung, Bosch, etc.) are
+  **"gated."** You cannot list until Amazon approves you — called **"ungating."**
+- Ungating needs **commercial invoices from an *authorised* distributor**,
+  typically **10–100 units**, dated within 90–180 days, business name matching
+  exactly. Retail receipts don't count. This is why we **start on eBay, not Amazon.**
+
+**What this means in practice:**
+1. **Sell non-branded / generic products first** (the gadgets & generic beauty
+   accessories in §3). No brand to approve, **zero VeRO risk** — the wholesaler
+   invoice covers everything. Cleanest possible start.
+2. **Branded clearance** (pallet suppliers): goods are genuine and UK law generally
+   lets you resell legitimately-bought branded items — but **check the VeRO list
+   for that brand first**; if it's on there, expect hassle and consider something else.
+3. **Keep every supplier invoice** regardless — your defence on eBay, and your
+   ungating ticket if you later expand to Amazon.
+
+So for this plan (eBay + generic/clearance stock), **buying from the §4 suppliers
+IS enough to start selling.** The approval gauntlet only appears on Amazon or with
+protected designer brands.
+
 ---
 
 ## 6. The real cost of selling (fees breakdown 2026)
@@ -252,6 +290,29 @@ If you'd paid £10 for that item, you'd make ~£4 and one return wipes out three
 - **Business insurance** & **distance-selling/consumer rights:** UK online sellers
   must offer 14-day returns under Consumer Contracts Regulations. Build a clear
   returns policy.
+
+### ⚠️ Visa note (important for whoever is "the face")
+- **Student visa = CANNOT be self-employed or run a business.** No sole trader,
+  no company directorship/stake, no trading. UKVI prohibits it — breaching it
+  risks the future Graduate/PSW visa.
+- **Graduate (PSW) visa = self-employment and running a business IS allowed.**
+  Wait until PSW is granted before putting your name on the business.
+- **A partner/family member with UK citizenship, settled status, or full right
+  to work** can be the sole trader / director **now**, with no restriction.
+- Until PSW lands, the business should legally belong to the person with the
+  right to trade. **Confirm with an OISC immigration adviser before acting.**
+
+### Ltd or sole trader?
+- **No, an Ltd is not required.** Start as a **sole trader** (simplest, cheapest).
+- **Switch to Ltd later** once profit is meaningful (~£30k+/yr) for tax efficiency
+  and limited liability. Needs an accountant.
+
+### Tax at a glance
+- **Sole trader:** tax on profit via Self Assessment — £0–£12,570 free, then 20% /
+  40% (>£50,270) / 45% (>£125k), plus Class 4 NIC (~6%/2%).
+- **Ltd:** Corporation Tax 19–25% on profit; take salary + dividends (dividend tax
+  8.75%/33.75%, first £500 free).
+- Both: VAT only at £90k turnover; platforms report sales to HMRC from 2026.
 
 ---
 
