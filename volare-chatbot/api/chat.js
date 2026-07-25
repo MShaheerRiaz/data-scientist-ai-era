@@ -1,11 +1,11 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { SYSTEM_PROMPT, CAPTURE_LEAD_TOOL } from './_prompt.js';
 import { notifyLead } from './_notify.js';
 
-const client = new Anthropic(); // reads ANTHROPIC_API_KEY
-
-// Single knob for the cost/quality tradeoff. See README for per-conversation numbers.
-const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-5';
+// OpenRouter (OpenAI-compatible). Set OPENROUTER_MODEL to any model on your
+// OpenRouter account, e.g. anthropic/claude-sonnet-4.5, openai/gpt-4.1-mini,
+// google/gemini-2.5-flash. Cheaper model = cheaper conversations, same code.
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const MODEL = process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4.5';
 
 const MAX_TURNS = 24; // messages kept from the client's history
 const MAX_CHARS = 2000; // per message
@@ -18,6 +18,18 @@ const RATE_LIMIT = { max: 30, windowMs: 60 * 60 * 1000 }; // per IP per hour
 const rateLimits = new Map();
 const capturedConversations = new Map();
 const CAPTURE_TTL_MS = 6 * 60 * 60 * 1000;
+
+// OpenAI-format tool definition, built from the neutral schema in _prompt.js.
+const TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: CAPTURE_LEAD_TOOL.name,
+      description: CAPTURE_LEAD_TOOL.description,
+      parameters: CAPTURE_LEAD_TOOL.input_schema,
+    },
+  },
+];
 
 function sweep(map) {
   const now = Date.now();
@@ -72,17 +84,44 @@ function sanitizeHistory(raw) {
 
 const isEmail = (s) => typeof s === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());
 
-const textOf = (content) =>
-  content
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('')
-    .trim();
+/** One call to OpenRouter. Throws on non-2xx so the handler can map the status. */
+async function callModel(messages) {
+  const res = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      // Optional attribution shown on your OpenRouter dashboard.
+      'HTTP-Referer': process.env.SITE_URL || 'https://volare.ai',
+      'X-Title': 'Volare AI Assistant',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1024,
+      tools: TOOLS,
+      tool_choice: 'auto',
+      messages,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    const err = new Error(`OpenRouter ${res.status}: ${body}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
 
 export default async function handler(req, res) {
   if (!applyCors(req, res)) return res.status(403).json({ error: 'Origin not allowed' });
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!process.env.OPENROUTER_API_KEY) {
+    console.error('[chat] OPENROUTER_API_KEY is not set');
+    return res.status(500).json({ error: 'Assistant is not configured yet.' });
+  }
 
   const ip =
     (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
@@ -99,71 +138,51 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'message is required' });
   }
 
+  // Plain-text transcript for the notification email (no tool plumbing).
   const transcript = [
     ...sanitizeHistory(history),
     { role: 'user', content: message.slice(0, MAX_CHARS) },
   ];
-  // Grows with tool_use / tool_result blocks during the loop below; `transcript` stays
-  // plain text for the notification email.
-  const messages = [...transcript];
+  // Full message list sent to the model — grows with assistant/tool turns below.
+  const messages = [{ role: 'system', content: SYSTEM_PROMPT }, ...transcript];
   let leadCaptured = false;
 
   try {
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-      const response = await client.messages.create({
-        model: MODEL,
-        max_tokens: 2048, // thinking shares this budget — leave headroom
-        system: [
-          // The prompt is well over the 512-token cache minimum, so every turn after
-          // the first reads it at ~10% of input price instead of paying full freight.
-          { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-        ],
-        thinking: { type: 'adaptive' },
-        output_config: { effort: 'low' },
-        tools: [CAPTURE_LEAD_TOOL],
-        messages,
-      });
+      const data = await callModel(messages);
+      const choice = data.choices?.[0];
+      const msg = choice?.message ?? {};
+      const toolCalls = msg.tool_calls ?? [];
 
-      // Check before touching content: a refusal can arrive with content empty.
-      if (response.stop_reason === 'refusal') {
+      if (toolCalls.length === 0) {
         return res.status(200).json({
-          reply: `I can't help with that one. If you'd like to talk to an advisor directly, you can reach the team at ${process.env.LEAD_EMAIL_TO || 'volare.ai'}.`,
-          leadCaptured: false,
-        });
-      }
-
-      const toolUses = response.content.filter((b) => b.type === 'tool_use');
-      if (toolUses.length === 0) {
-        return res.status(200).json({
-          reply: textOf(response.content) || "Sorry — I didn't catch that. Could you rephrase?",
+          reply: (msg.content || '').trim() || "Sorry — I didn't catch that. Could you rephrase?",
           leadCaptured,
         });
       }
 
-      // Echo the full content back, thinking blocks included — required by the API.
-      messages.push({ role: 'assistant', content: response.content });
+      // Echo the assistant turn (with its tool_calls) back before answering them.
+      messages.push(msg);
 
-      const toolResults = [];
-      for (const call of toolUses) {
-        if (call.name !== 'capture_lead') {
-          toolResults.push({
-            type: 'tool_result',
-            tool_use_id: call.id,
-            content: `Unknown tool: ${call.name}`,
-            is_error: true,
-          });
+      for (const call of toolCalls) {
+        const push = (content) =>
+          messages.push({ role: 'tool', tool_call_id: call.id, content });
+
+        if (call.function?.name !== 'capture_lead') {
+          push(`Unknown tool: ${call.function?.name}`);
           continue;
         }
 
-        const lead = call.input ?? {};
+        let lead;
+        try {
+          lead = JSON.parse(call.function.arguments || '{}');
+        } catch {
+          push('Could not parse the arguments. Ask the visitor to confirm their details.');
+          continue;
+        }
+
         if (!isEmail(lead.email)) {
-          toolResults.push({
-            type: 'tool_result',
-            tool_use_id: call.id,
-            content:
-              "That email address doesn't look valid. Ask the visitor to confirm it, then try again.",
-            is_error: true,
-          });
+          push("That email doesn't look valid. Ask the visitor to confirm it, then try again.");
           continue;
         }
 
@@ -171,11 +190,7 @@ export default async function handler(req, res) {
         const key = conversationId || `${ip}:${lead.email.toLowerCase()}`;
         if (capturedConversations.has(key)) {
           leadCaptured = true;
-          toolResults.push({
-            type: 'tool_result',
-            tool_use_id: call.id,
-            content: 'Already recorded earlier in this conversation. No action taken.',
-          });
+          push('Already recorded earlier in this conversation. No action taken.');
           continue;
         }
 
@@ -184,27 +199,21 @@ export default async function handler(req, res) {
           capturedConversations.set(key, Date.now() + CAPTURE_TTL_MS);
           leadCaptured = true;
         }
-        // Even on failure we tell the model it succeeded: the visitor shouldn't be
-        // asked to re-enter details because our mail provider had a bad minute. The
+        // Tell the model it succeeded even if delivery failed: the visitor must not
+        // be asked to retype details because our mail provider had a bad minute. The
         // real failure is logged in notifyLead for us to chase.
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: call.id,
-          content: 'Lead recorded. The Volare team has been notified.',
-        });
+        push('Lead recorded. The Volare team has been notified.');
       }
-
-      messages.push({ role: 'user', content: toolResults });
     }
 
-    // Ran out of tool rounds without a final text answer.
+    // Ran out of tool rounds without a plain text answer.
     return res.status(200).json({
       reply: `Got it — someone from the team will be in touch. If you'd like to move faster, you can book a call at ${process.env.BOOKING_URL || 'https://volare.ai/booking-survey'}.`,
       leadCaptured,
     });
   } catch (err) {
-    console.error('[chat]', err);
-    if (err instanceof Anthropic.RateLimitError) {
+    console.error('[chat]', err.message);
+    if (err.status === 429) {
       return res.status(429).json({ error: 'Busy right now — please try again in a moment.' });
     }
     return res
