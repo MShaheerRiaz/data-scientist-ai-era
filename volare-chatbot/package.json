@@ -1,0 +1,7 @@
+{
+  "name": "volare-chatbot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Zero-setup lead-capture chatbot for Volare AI. Runs on OpenRouter; the agency owns every account and key."
+}
