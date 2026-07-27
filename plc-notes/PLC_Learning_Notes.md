@@ -25,6 +25,7 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 **Part 3. Communication**
 
 7. [Industrial Communication Protocols](#7-industrial-communication-protocols)
+8. [OPC, Open Platform Communications](#8-opc-open-platform-communications)
 
 **Appendix**
 
@@ -503,6 +504,87 @@ The defining feature is that PROFIBUS uses a **single cable** to connect many de
 5. EtherNet/IP and ControlNet, only if I move toward Allen-Bradley
 
 ---
+
+## 8. OPC, Open Platform Communications
+
+**Slide definition:** A standard for a secure and reliable exchange of data.
+
+### The problem OPC solves
+
+A real plant contains PLCs from several vendors, each speaking its own protocol. Without a standard, every HMI, SCADA package and database would need a custom driver written for every controller it talks to. That is a combinatorial mess.
+
+OPC is the **common language** that sits above all of them. Any controller can publish its data through OPC, and any application can read it, regardless of who made either one.
+
+> OPC is vendor neutral. It is what lets a Siemens PLC, an Allen-Bradley PLC and an Omron PLC all feed the same SCADA screen.
+
+### Where it sits in the architecture
+
+From the slide diagram, reading bottom to top:
+
+```
+                    HMI                  top level supervision
+                     |
+    +--------+-------+--------+--------------+
+   HMI      HMI            HMI           Database
+    |        |               |               |
+   OPC      OPC             OPC             OPC     <- the common layer
+    |        |               |               |
+   PLC      PLC             PLC             PLC     control level
+```
+
+Each PLC publishes through OPC. HMIs and databases consume from it. A higher level HMI can then aggregate several lower ones.
+
+**The key idea:** OPC makes data from many different controllers available **in one place**, so applications like HMI, SCADA, historians and databases can all reach it consistently.
+
+### Server and client, the parent and child model
+
+OPC is implemented in **server and client pairs**.
+
+| Role | Analogy from the slide | What it does |
+|---|---|---|
+| **OPC Server** | **Parent** | **Provides** the data. Sits close to the controller and exposes its tags |
+| **OPC Client** | **Child** | **Requests and uses** the data. The HMI, SCADA, historian or database |
+
+Server supplies, client consumes. One server can serve many clients at once, which is exactly why the model scales.
+
+### The four connection scenarios
+
+| Scenario | What it means |
+|---|---|
+| **Single connection** | One client talks to one server. The simplest case, one HMI reading one PLC |
+| **Aggregation** | One client pulls from **multiple servers** at once, combining data from many controllers into a single view |
+| **Tunnelling** | Data passed **across a network**, between sites or through a firewall, securely |
+| **Bridging** | **Server to server** transfer, moving data directly between two systems without an application in the middle |
+
+Aggregation is the one that matters most in practice. It is how a plant wide SCADA screen shows data from a dozen different PLCs at once.
+
+### OPC Classic vs OPC UA, worth knowing
+
+| | OPC Classic (DA, HDA, A&E) | **OPC UA** (Unified Architecture) |
+|---|---|---|
+| Built on | Microsoft COM and DCOM | Platform independent |
+| Platform | **Windows only** | Windows, Linux, embedded, cloud |
+| Security | Weak, DCOM was notoriously awkward | **Built in encryption, authentication, certificates** |
+| Data model | Simple tag values | Rich, structured, self describing |
+| Status | Legacy, still widely installed | **The modern standard. Learn this one** |
+
+**OPC UA is the important one.** It is the backbone of Industry 4.0 and the standard route for getting plant data into IT systems, databases and cloud analytics.
+
+### Why this section matters more to me than most
+
+This is the **exact bridge between my control skills and my Python and machine learning background**.
+
+- A PLC controls the process
+- **OPC UA exposes that process data**
+- A Python client reads it, and my ANN or LSTM models consume it for predictive maintenance
+
+The Python library `opcua` or `asyncua` connects to an OPC UA server in a few lines. That means I can build a genuine portfolio project: PLC logic in TIA Portal or CODESYS, data exposed over OPC UA, Python reading it live and running a model on it.
+
+Very few graduate candidates can demonstrate that end to end chain. It directly combines the control level with the management level, which is the combination I identified as my differentiator.
+
+**Action point:** once TIA Portal and CODESYS are set up, build a small OPC UA to Python demo and put it on GitHub.
+
+---
 ---
 
 # Appendix A. Quiz Answers
@@ -554,5 +636,14 @@ The defining feature is that PROFIBUS uses a **single cable** to connect many de
 
 **Why a PLC output cannot run a motor**
 > Outputs are low current. The output energises a contactor coil, and the contactor switches the motor power circuit. The PLC does control, not power.
+
+**What OPC is for**
+> A vendor neutral standard that lets controllers from different manufacturers publish data to one place, so any HMI, SCADA or database can read it without a custom driver per device.
+
+**OPC server vs client**
+> Server is the parent, it provides the data. Client is the child, it requests and uses it. One server serves many clients.
+
+**OPC Classic vs OPC UA**
+> Classic was built on Windows COM and DCOM. OPC UA is platform independent with built in security, and is the modern Industry 4.0 standard.
 
 ---
