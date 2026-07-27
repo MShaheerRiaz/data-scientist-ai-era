@@ -14,6 +14,7 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 1. [Automation System Levels](#note-01-automation-system-levels)
 2. [PLCs and Distributed Control Systems](#note-02-programmable-logic-controllers-and-distributed-control-systems)
 3. [Management Level](#note-03-management-level)
+4. [Industrial Communication Protocols](#note-04-industrial-communication-protocols)
 
 ---
 
@@ -136,5 +137,72 @@ This matters for safety. Direct and safety critical control always stays at the 
 This is where my Python and machine learning work connects. Predictive maintenance, condition monitoring and analytics all run on data acquired at the management level. My MSc dissertation on ANN and LSTM models for battery health is exactly this kind of work applied to historian data.
 
 Combining control level programming with management level data skills is a genuinely rare and valuable combination.
+
+---
+
+## Note 04. Industrial Communication Protocols
+
+Protocols are how the levels of the automation hierarchy actually talk to each other. Field instruments to controller, controller to controller, controller to SCADA.
+
+### The main protocols at a glance
+
+| Protocol | Vendor origin | Used for |
+|---|---|---|
+| **PROFINET** | Siemens | Modern Siemens standard. Ethernet based, real time. **Learn this one** |
+| **PROFIBUS** | Siemens | Older Siemens fieldbus. Still very widely installed |
+| **ControlNet** | Rockwell / Allen-Bradley | Real time, deterministic data transfer between devices on a network |
+| **DeviceNet** | Rockwell / Allen-Bradley | Device level. Sensors and actuators |
+| **EtherNet/IP** | Rockwell / ODVA | Modern Rockwell standard. Ethernet based |
+| **Modbus** | Modicon, now open | Simple and universal. Extremely common, easy to learn |
+| **HART** | Open standard | Digital signal layered on top of 4 to 20 mA wiring |
+| **Foundation Fieldbus** | Open standard | Process industry. Common in oil, gas and chemical |
+| **EtherCAT** | Beckhoff | Very high speed motion control. Used by Tesla and advanced manufacturing |
+| **IEC 61850** | Open standard | Electrical substations and smart grids |
+| **OPC UA** | Open standard | Vendor neutral data exchange, typically controller to SCADA or IT systems |
+
+### HART, worth knowing properly
+
+HART stands for **Highway Addressable Remote Transducer**.
+
+The key idea is that HART is **two way, or bidirectional**. It sends and receives.
+
+- It layers a **digital signal on top of the existing 4 to 20 mA analogue current loop**
+- The analogue 4 to 20 mA still carries the primary process value
+- The digital signal simultaneously carries configuration, diagnostics and secondary values
+- This means **no new wiring is needed**. It works over the cabling already installed
+
+**Why it matters:** an engineer can configure, calibrate and diagnose a field instrument remotely, without walking out to the device. It also reports device health, which feeds directly into predictive maintenance.
+
+**Relevant to me:** the flow, pressure, level and temperature transmitters I calibrated at Fauji Fertilizer are exactly the class of device that uses HART.
+
+### PROFIBUS, worth knowing properly
+
+The defining feature is that PROFIBUS uses a **single cable** to connect many devices in series, rather than running individual wires from every device back to the controller.
+
+- One shared bus cable, devices connected along it
+- Massively reduces wiring, cable trays, marshalling terminations and installation cost
+- Each device has its own address on the bus
+- Compare with traditional wiring, where every single instrument needs its own dedicated pair back to the I/O card
+
+**Two main variants**
+- **PROFIBUS DP** (Decentralised Peripherals). Fast, for connecting remote I/O and drives
+- **PROFIBUS PA** (Process Automation). For field instruments in process plants, including hazardous areas
+
+**PROFIBUS vs PROFINET:** PROFIBUS is the older serial fieldbus. PROFINET is the modern Ethernet based successor. New Siemens projects use PROFINET, but PROFIBUS is still everywhere in installed plants, so both are worth knowing.
+
+### Quiz answers captured
+
+**Q. What is ControlNet used for in industrial automation?**
+> Real time data transfer between devices on a network
+
+**Q. Implementing a new automation system, main concern is that logic and design are correctly implemented. Which level do you focus on?**
+> Control and Management levels
+
+### What to prioritise given my Siemens path
+1. **PROFINET** and **PROFIBUS**, non negotiable for Siemens work
+2. **HART** and **Foundation Fieldbus**, directly relevant to my instrumentation background
+3. **Modbus**, universal and quick to pick up
+4. **OPC UA**, the bridge between control and my Python and data work
+5. EtherNet/IP and ControlNet, only if I move toward Allen-Bradley
 
 ---
