@@ -11,14 +11,32 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 
 ## Contents
 
-1. [Automation System Levels](#note-01-automation-system-levels)
-2. [PLCs and Distributed Control Systems](#note-02-programmable-logic-controllers-and-distributed-control-systems)
-3. [Management Level](#note-03-management-level)
-4. [Industrial Communication Protocols](#note-04-industrial-communication-protocols)
+**Part 1. The Big Picture**
+1. [Automation System Levels](#1-automation-system-levels)
+2. [Management Level](#2-management-level)
+
+**Part 2. The Controller**
+
+3. [PLCs and Distributed Control Systems](#3-plcs-and-distributed-control-systems)
+4. [PLC Components](#4-plc-components)
+
+**Part 3. Communication**
+
+5. [Industrial Communication Protocols](#5-industrial-communication-protocols)
+
+**Appendix**
+
+- [Quiz Answers](#appendix-a-quiz-answers)
+- [Interview Quick Reference](#appendix-b-interview-quick-reference)
+
+---
+---
+
+# Part 1. The Big Picture
 
 ---
 
-## Note 01. Automation System Levels
+## 1. Automation System Levels
 
 The three levels of an automation system, bottom to top.
 
@@ -60,41 +78,7 @@ The three levels of an automation system, bottom to top.
 
 ---
 
-## Note 02. Programmable Logic Controllers and Distributed Control Systems
-
-**Slide definition:** Send, receive, and process data from sensors as part of the control system.
-
-### What they do, in order
-1. **Receive** input signals from field sensors and instruments
-2. **Process** those signals against the programmed logic
-3. **Send** output commands back to valves, motors and actuators
-
-Both PLC and DCS sit at the **control level** of the automation hierarchy.
-
-### PLC vs DCS, the practical difference
-
-| | PLC | DCS |
-|---|---|---|
-| Full name | Programmable Logic Controller | Distributed Control System |
-| Best at | Fast, discrete, machine control | Continuous process control |
-| Scope | One machine or one area | Whole plant, many control loops |
-| Architecture | Standalone controller | Controllers distributed across the plant, centrally managed |
-| Typical use | Packaging line, conveyor, motor control | Refinery, fertilizer plant, chemical process |
-| Response | Very fast scan times | Optimised for stability and loop control |
-| Example products | Siemens S7-1200, Allen-Bradley ControlLogix | Siemens PCS 7, Honeywell Experion, Yokogawa Centum |
-
-### Key point
-The line between them is blurring. Modern PLCs handle process control, and modern DCS platforms use PLC style logic. **Learning PLC fundamentals transfers to DCS work.**
-
-### Relevant to me
-Fauji Fertilizer ran DCS and ESD, which is the classic process industry setup. The ladder and function block logic I write for a PLC is the same thinking used in DCS configuration.
-
-### Interview angle
-If asked "do you know DCS or PLC", the strong answer is that I have hands on DCS and ESD exposure from a live plant turnaround, and I am now building formal PLC programming skills on Siemens. That covers both sides of the control level.
-
----
-
-## Note 03. Management Level
+## 2. Management Level
 
 **Slide definition:** Acquiring data from remote devices and providing overall control remotely from a host software platform.
 
@@ -139,8 +123,139 @@ This is where my Python and machine learning work connects. Predictive maintenan
 Combining control level programming with management level data skills is a genuinely rare and valuable combination.
 
 ---
+---
 
-## Note 04. Industrial Communication Protocols
+# Part 2. The Controller
+
+---
+
+## 3. PLCs and Distributed Control Systems
+
+**Slide definition:** Send, receive, and process data from sensors as part of the control system.
+
+### What they do, in order
+1. **Receive** input signals from field sensors and instruments
+2. **Process** those signals against the programmed logic
+3. **Send** output commands back to valves, motors and actuators
+
+Both PLC and DCS sit at the **control level** of the automation hierarchy.
+
+### PLC vs DCS, the practical difference
+
+| | PLC | DCS |
+|---|---|---|
+| Full name | Programmable Logic Controller | Distributed Control System |
+| Best at | Fast, discrete, machine control | Continuous process control |
+| Scope | One machine or one area | Whole plant, many control loops |
+| Architecture | Standalone controller | Controllers distributed across the plant, centrally managed |
+| Typical use | Packaging line, conveyor, motor control | Refinery, fertilizer plant, chemical process |
+| Response | Very fast scan times | Optimised for stability and loop control |
+| Example products | Siemens S7-1200, Allen-Bradley ControlLogix | Siemens PCS 7, Honeywell Experion, Yokogawa Centum |
+
+### Key point
+The line between them is blurring. Modern PLCs handle process control, and modern DCS platforms use PLC style logic. **Learning PLC fundamentals transfers to DCS work.**
+
+### Relevant to me
+Fauji Fertilizer ran DCS and ESD, which is the classic process industry setup. The ladder and function block logic I write for a PLC is the same thinking used in DCS configuration.
+
+### Interview angle
+If asked "do you know DCS or PLC", the strong answer is that I have hands on DCS and ESD exposure from a live plant turnaround, and I am now building formal PLC programming skills on Siemens. That covers both sides of the control level.
+
+---
+
+## 4. PLC Components
+
+Every PLC, regardless of vendor, is built from the same four building blocks.
+
+| Component | Role in one line |
+|---|---|
+| **Power supply** | Feeds clean DC power to the CPU and modules |
+| **Controller CPU** | The brain. Runs the program |
+| **I/O system** | The senses and hands. Connects to the real world |
+| **Software** | Where the program is written and downloaded from |
+
+### Power supply
+- Converts incoming mains AC, typically 230 V AC in the UK, down to low voltage DC
+- **24 V DC is the industrial standard** for control circuits and most field devices
+- Must be correctly sized for the CPU plus every module plus connected field devices
+- Often backed by a UPS or battery so the controller survives a brief supply dip
+- A weak or undersized supply causes intermittent faults that are notoriously hard to diagnose
+
+### Controller CPU
+- The processing unit that executes your program
+- Contains the **memory**, both program memory and data memory
+- Runs continuously in a loop called the **scan cycle**
+- Has a mode switch, usually RUN, STOP and MRES or reset
+- Status LEDs for run, stop, error and forcing, the first thing to check when troubleshooting
+
+**The scan cycle, the single most important concept in PLC programming**
+
+The CPU repeats these steps thousands of times per second:
+
+1. **Read inputs.** Take a snapshot of every input and store it in the input image table
+2. **Execute program.** Run the logic top to bottom, left to right, using that snapshot
+3. **Write outputs.** Update the physical outputs from the output image table
+4. **Housekeeping.** Diagnostics, communications, then repeat
+
+**Why this matters in practice**
+- The program does **not** see an input change mid scan. It works from the snapshot taken at the start
+- Output coils do not energise the instant the rung is solved. They update at the end of the scan
+- This is the root cause of many beginner bugs, including one scan delays and unexpected rung ordering behaviour
+- **Scan time** is how long one full cycle takes, typically a few milliseconds. A long or inconsistent scan time is a warning sign
+
+### I/O system
+The interface between the PLC and the physical plant. Four fundamental types:
+
+| Type | Abbreviation | Signal | Example device |
+|---|---|---|---|
+| Digital input | DI | On or off, 24 V DC | Push button, limit switch, proximity sensor |
+| Digital output | DO | On or off | Relay, contactor, indicator lamp, solenoid valve |
+| Analogue input | AI | Continuous, 4 to 20 mA or 0 to 10 V | Pressure, flow, level, temperature transmitter |
+| Analogue output | AO | Continuous, 4 to 20 mA or 0 to 10 V | Control valve positioner, variable speed drive setpoint |
+
+**Points worth knowing**
+- **4 to 20 mA is the process industry standard.** The reason it starts at 4 mA rather than 0 is live zero. If the signal reads 0 mA, you know the loop is broken rather than the process genuinely reading zero. That is a built in fault detection feature
+- **Specialty modules** also exist: high speed counters, motion and positioning, PID, thermocouple and RTD, and communication modules
+- **Local vs remote I/O.** Local sits in the same rack as the CPU. Remote I/O sits out in the plant and connects back over PROFINET or PROFIBUS, which saves enormous amounts of cabling
+- **Safety I/O** is a separate, certified category used for emergency stops and safety interlocks, for example Siemens Safety Integrated or Triconex
+
+### Software
+Two distinct meanings, do not confuse them:
+
+1. **The programming environment**, the tool on the engineer's laptop
+   - Siemens: **TIA Portal**
+   - Allen-Bradley: Studio 5000
+   - Beckhoff: TwinCAT
+   - Vendor neutral: CODESYS
+
+2. **The program itself**, the logic downloaded into the CPU
+   - Written in one of the **IEC 61131-3** languages
+   - Ladder Diagram (LD), Function Block Diagram (FBD), Structured Text (ST), Sequential Function Chart (SFC), Instruction List (IL)
+
+**What the software also does beyond writing logic**
+- Hardware configuration, telling the CPU which modules are fitted and where
+- Tag and symbol management
+- Online monitoring and forcing, watching live values while the program runs
+- Diagnostics and fault reporting
+- Uploading and downloading programs, and version backup
+
+### Physical assembly
+- Modules mount on a **rack** or **chassis**, usually DIN rail mounted in a control panel
+- The **backplane** is the internal bus that carries power and data between modules
+- Typical left to right order: power supply, CPU, then I/O and communication modules
+- Everything sits inside a control panel, which is what marshalling cabinets ultimately wire into
+
+### Relevant to me
+My BSc final year project, the Arduino based PLC module, contained every one of these four components. A regulated power supply, the microcontroller acting as CPU, input and output circuitry driving stepper, servo and DC motors, and the software I wrote plus the HMI dashboard. That is a genuine talking point in interviews, because it shows I have built a controller from first principles rather than only configured one.
+
+---
+---
+
+# Part 3. Communication
+
+---
+
+## 5. Industrial Communication Protocols
 
 Protocols are how the levels of the automation hierarchy actually talk to each other. Field instruments to controller, controller to controller, controller to SCADA.
 
@@ -190,19 +305,49 @@ The defining feature is that PROFIBUS uses a **single cable** to connect many de
 
 **PROFIBUS vs PROFINET:** PROFIBUS is the older serial fieldbus. PROFINET is the modern Ethernet based successor. New Siemens projects use PROFINET, but PROFIBUS is still everywhere in installed plants, so both are worth knowing.
 
-### Quiz answers captured
-
-**Q. What is ControlNet used for in industrial automation?**
-> Real time data transfer between devices on a network
-
-**Q. Implementing a new automation system, main concern is that logic and design are correctly implemented. Which level do you focus on?**
-> Control and Management levels
-
 ### What to prioritise given my Siemens path
 1. **PROFINET** and **PROFIBUS**, non negotiable for Siemens work
 2. **HART** and **Foundation Fieldbus**, directly relevant to my instrumentation background
 3. **Modbus**, universal and quick to pick up
 4. **OPC UA**, the bridge between control and my Python and data work
 5. EtherNet/IP and ControlNet, only if I move toward Allen-Bradley
+
+---
+---
+
+# Appendix A. Quiz Answers
+
+| Question | Answer |
+|---|---|
+| What is ControlNet used for in industrial automation? | Real time data transfer between devices on a network |
+| Implementing a new automation system, main concern is that logic and design are correctly implemented. Which level do you focus on? | Control and Management levels |
+
+---
+
+# Appendix B. Interview Quick Reference
+
+**The three levels**
+> Field instruments sense it, the PLC decides it, SCADA shows it.
+
+**The four PLC components**
+> Power supply, CPU, I/O system, software.
+
+**The scan cycle**
+> Read inputs, execute program, write outputs, repeat.
+
+**Why 4 to 20 mA and not 0 to 20 mA**
+> Live zero. 0 mA means a broken loop, not a zero reading. Built in fault detection.
+
+**PLC vs DCS in one line**
+> PLC for fast discrete machine control, DCS for continuous plant wide process control. The distinction is blurring.
+
+**Management level vs control level**
+> Management level is supervisory. It requests, the PLC executes. Safety critical control never lives at the management level.
+
+**PROFIBUS vs PROFINET**
+> PROFIBUS is the older serial fieldbus, one shared cable for many devices. PROFINET is the modern Ethernet based successor.
+
+**What HART adds**
+> Bidirectional digital diagnostics layered over the existing 4 to 20 mA loop, with no rewiring.
 
 ---
