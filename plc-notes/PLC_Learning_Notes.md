@@ -31,6 +31,7 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 
 - [Quiz Answers](#appendix-a-quiz-answers)
 - [Interview Quick Reference](#appendix-b-interview-quick-reference)
+- [Interview Questions and Model Answers](#appendix-c-interview-questions-and-model-answers)
 
 ---
 ---
@@ -507,7 +508,11 @@ The defining feature is that PROFIBUS uses a **single cable** to connect many de
 
 ## 8. OPC, Open Platform Communications
 
-**Slide definition:** A standard for a secure and reliable exchange of data.
+**Slide definitions**
+- A standard for a secure and reliable exchange of data
+- Used in the applications that need access to data from any data source
+
+That second line is the whole point. **Any data source.** OPC does not care whether the data comes from a Siemens PLC, an Allen-Bradley PLC, a temperature controller or a database. The client asks the same way every time.
 
 ### The problem OPC solves
 
@@ -645,5 +650,172 @@ Very few graduate candidates can demonstrate that end to end chain. It directly 
 
 **OPC Classic vs OPC UA**
 > Classic was built on Windows COM and DCOM. OPC UA is platform independent with built in security, and is the modern Industry 4.0 standard.
+
+---
+
+# Appendix C. Interview Questions and Model Answers
+
+Questions a graduate control and instrumentation or automation interview is likely to include, based on everything covered so far. Answers written in my own voice, using my actual experience.
+
+---
+
+## C1. Technical fundamentals
+
+**Q. What is a PLC and what does it do?**
+> A Programmable Logic Controller is an industrial computer that sits at the control level of an automation system. It reads signals from field instruments, processes them against programmed logic, and drives outputs to devices like valves, motors and contactors. It is built to be rugged and deterministic, so it runs reliably in a plant environment for years.
+
+**Q. Explain the PLC scan cycle.**
+> The CPU repeats four steps continuously. It reads all inputs and stores them in an input image table, executes the program top to bottom using that snapshot, writes the outputs, then does housekeeping like diagnostics and comms before repeating.
+>
+> The important consequence is that the program works from a snapshot, not live inputs, and outputs do not energise the instant a rung solves. They update at the end of the scan. That is what causes one scan delays, and it is why rung order matters.
+
+**Q. What are the main components of a PLC?**
+> Power supply, CPU, I/O system and software. The power supply converts mains down to 24 V DC, the CPU holds the memory and runs the scan cycle, the I/O system interfaces with the field, and the software is both the engineering tool like TIA Portal and the program itself.
+
+**Q. What is the difference between a PLC and a DCS?**
+> A PLC is optimised for fast discrete machine control over one machine or area. A DCS is built for continuous process control across a whole plant with many control loops, with the controllers distributed but centrally managed.
+>
+> In practice the distinction is blurring, because modern PLCs handle process control well and DCS platforms use PLC style logic. My own exposure was DCS and ESD at a fertilizer plant, and the logic thinking transfers directly.
+
+**Q. What are the three levels of an automation system?**
+> Device level is the field instruments and actuators. Control level is the PLC or DCS running the logic. Management or application level is SCADA, HMI and historians.
+>
+> The short version I use is that field instruments sense it, the PLC decides it, and SCADA shows it.
+
+**Q. Can SCADA control a motor directly?**
+> No. The management level is supervisory. It sends a request down to the PLC, and the PLC executes the actual control. The PLC keeps running its logic even if SCADA goes offline. That separation is deliberate, and it is why safety critical control never lives at the management level.
+
+**Q. What are the CPU operating modes?**
+> Broadly programming mode and run mode. In programming mode, called STOP on Siemens and PROG on Allen-Bradley, the logic is halted and outputs go to a safe state, which is when you download a program or change hardware configuration. In run mode the scan cycle executes and outputs are live.
+>
+> Allen-Bradley also has a REM position which hands mode control to the software so it can be switched remotely.
+
+**Q. What are the IEC 61131-3 languages?**
+> Ladder Diagram, Function Block Diagram, Structured Text, Sequential Function Chart and Instruction List. Ladder and Function Block are the two I have used, programming Triconex safety systems during my placements.
+
+---
+
+## C2. I/O and signals
+
+**Q. What are the four types of I/O?**
+> Digital input, digital output, analogue input and analogue output. Digital is on or off, like a limit switch or a contactor. Analogue is a continuous value, like a pressure transmitter or a valve positioner.
+
+**Q. What are the standard analogue signal ranges?**
+> 4 to 20 mA and 0 to 10 V DC. 4 to 20 mA is the process industry standard.
+
+**Q. Why 4 to 20 mA and not 0 to 20 mA?**
+> Live zero. 4 mA represents zero percent of range, so a reading of 0 mA can only mean a broken loop or a dead instrument. If the range started at 0 mA there would be no way to tell a genuine zero from a failed loop. It is fault detection built into the signal standard.
+
+**Q. Why is a current loop better than a voltage signal?**
+> Current is unaffected by voltage drop along the cable and is far more immune to induced electrical noise, so it works over long runs in an electrically noisy plant. Voltage signals degrade with distance and pick up noise, so they are used for short runs on machines.
+
+**Q. What are the typical digital voltages?**
+> 24 V DC is the industrial standard for both inputs and outputs. Older or mains powered equipment uses 110 or 230 V AC.
+
+**Q. What types of digital output module are there and when would you use each?**
+> Transistor, relay and triac. Transistor for fast frequently switched DC loads like solenoid valves. Relay when you need a volt free contact, when the load is AC, or when the load voltage differs from the PLC supply. Triac for AC loads switched often enough that a relay would wear out.
+
+**Q. Can a PLC output drive a motor directly?**
+> No. Outputs are low current. The output energises a contactor coil and the contactor switches the motor power circuit. The PLC does control, not power.
+
+**Q. Explain sinking and sourcing.**
+> A sourcing device supplies current out, which corresponds to a PNP sensor. A sinking device receives current and provides the path to 0 V, which corresponds to NPN. They must pair opposite, so a PNP sourcing sensor goes to a sinking input card.
+>
+> If you get it backwards the input simply never registers and there is no obvious fault to see, which makes it a common commissioning problem. PNP sourcing is the norm in Europe.
+
+**Q. What is intrinsically safe I/O and why does it matter?**
+> It limits the electrical energy going into the field so it cannot ignite an explosive atmosphere. It is required in hazardous areas, which is directly relevant to the fertilizer, chemical and oil and gas environments I have worked in and am targeting.
+
+---
+
+## C3. Communication
+
+**Q. Which industrial protocols do you know?**
+> On the Siemens side, PROFINET which is the modern Ethernet based standard, and PROFIBUS which is the older fieldbus but still very widely installed. More broadly Modbus, HART and Foundation Fieldbus on the instrumentation side, and EtherNet/IP and ControlNet on the Rockwell side.
+
+**Q. What is HART and what makes it useful?**
+> Highway Addressable Remote Transducer. It layers a bidirectional digital signal on top of the existing 4 to 20 mA current loop, so the analogue signal still carries the process value while the digital signal carries configuration, diagnostics and secondary values.
+>
+> The practical benefit is that no new wiring is needed. An engineer can configure, calibrate and diagnose an instrument remotely instead of walking out to it, and the device health data feeds straight into predictive maintenance.
+
+**Q. What is the advantage of PROFIBUS over traditional wiring?**
+> It uses a single shared bus cable with devices connected along it, each with its own address, rather than running an individual pair from every instrument back to the I/O card. That massively reduces cabling, cable trays, marshalling terminations and installation cost.
+
+**Q. What is the difference between PROFIBUS and PROFINET?**
+> PROFIBUS is the older serial fieldbus. PROFINET is the modern Ethernet based successor. New Siemens projects specify PROFINET, but PROFIBUS is still installed everywhere, so both are worth knowing.
+
+**Q. What is OPC and why does it exist?**
+> Open Platform Communications. It is a vendor neutral standard for exchanging data. Without it, every HMI, SCADA package or database would need a custom driver written for every controller brand it talks to.
+>
+> With OPC, controllers publish their data through a common layer and any application can read it the same way, regardless of manufacturer.
+
+**Q. How is OPC implemented?**
+> In server and client pairs. The server is the parent, it sits close to the controller and provides the data. The client is the child, it requests and uses that data, so an HMI, SCADA system, historian or database. One server can serve many clients.
+>
+> There are four connection scenarios: a single client to server connection, aggregation where one client pulls from multiple servers, tunnelling across a network or firewall, and bridging which moves data server to server.
+
+**Q. What is the difference between OPC Classic and OPC UA?**
+> OPC Classic was built on Microsoft COM and DCOM, so it was Windows only and the security was weak. OPC UA is platform independent, runs on Windows, Linux, embedded devices and cloud, and has encryption, authentication and certificates built in. UA is the modern Industry 4.0 standard and the one worth investing in.
+
+---
+
+## C4. Questions about my background
+
+**Q. What is your greatest achievement to date?**
+> During a plant turnaround at Fauji Fertilizer, I was responsible for terminating and loop checking DCS and ESD field wiring across multiple marshalling cabinets. I delivered 100 percent accurate cable tagging with zero errors, which supported a clean commissioning and minimised downtime.
+>
+> What makes it my greatest achievement is not the technical work itself but doing it to a standard where safety critical wiring had no room for mistakes, under live turnaround pressure.
+
+**Q. You are a graduate. What real plant experience do you actually have?**
+> Two placements at Fauji Fertilizer as an Instrumentation and Control Engineer, including a full plant turnaround. I supervised termination and loop checking of DCS and ESD field wiring, calibrated flow, pressure, level and temperature transmitters using standard procedures, programmed Triconex safety PLCs in Ladder and Function Block Diagram, and mapped the plant wide DCS and ESD architecture including marshalling cabinet layouts.
+>
+> So I have worked on live safety critical systems in a process plant, which is unusual for a graduate.
+
+**Q. Why control and instrumentation rather than general electrical?**
+> It is where my strongest results and my strongest experience line up. I took a Distinction in Industrial Process Control in my MSc, my BSc final year project was building an Arduino based PLC module with an HMI and IoT connectivity, and my placements were both instrumentation and control. It is also the area I find genuinely interesting, because it sits between the physical process and the software.
+
+**Q. Tell me about your final year project.**
+> I designed and built a programmable logic controller module on Arduino that controlled stepper, servo and DC motors for speed and direction, aimed at small scale industrial and IoT applications. I developed an HMI dashboard for real time operator monitoring and added IoT connectivity through a mobile app for remote control.
+>
+> Building a controller from first principles rather than just configuring one taught me what is actually happening inside a PLC, which has made learning commercial platforms much faster.
+
+**Q. You have a machine learning dissertation. Is that not a different career?**
+> I see it as the same career one level up. My dissertation built ANN and LSTM models for battery state of health and remaining useful life, benchmarked against Kalman filtering. That is predictive maintenance, and predictive maintenance runs on plant data acquired at the management level through systems like OPC UA and historians.
+>
+> So the control skills and the data skills connect directly. A PLC generates the data, OPC UA exposes it, and Python consumes it. Being able to work at both ends is the combination I am deliberately building.
+
+**Q. Which PLC platform do you know?**
+> My hands on plant experience is Triconex safety systems in Ladder and Function Block. I am now building formal skills on Siemens TIA Portal, because Siemens leads the UK market and dominates the process industries and the Middle East EPC projects I am targeting.
+>
+> The fundamentals are IEC 61131-3 standardised, so the logic transfers. I have deliberately gone deep on one platform rather than shallow on several.
+
+**Q. Where do you see yourself in five years?**
+> Working as a control and instrumentation or automation engineer on process plant, ideally with chartership underway, and specialising in the overlap between control systems and plant data. Predictive maintenance and condition monitoring are where I think the field is heading, and it is where my background gives me an advantage.
+
+**Q. Do you need visa sponsorship?**
+> No. I am on the UK Graduate Route with full right to work for two years and no sponsorship required.
+
+---
+
+## C5. Questions to ask them
+
+Always have three ready. These work well:
+
+1. What PLC and SCADA platforms does the team standardise on, and is there any migration planned?
+2. What does the first six months look like for a graduate engineer here, and is there support toward chartership?
+3. How much of the role is design and programming versus commissioning and site work?
+4. Is there any work happening around plant data, condition monitoring or predictive maintenance?
+
+That last one is worth asking. It signals the data side of my background without me having to force it into an answer.
+
+---
+
+## C6. Preparation notes
+
+- **Know my own CV cold.** Every claim on it is fair game
+- **Have numbers ready.** 100 percent accurate cable tagging, zero errors, Distinction grades
+- **Use STAR** for behavioural questions: Situation, Task, Action, Result
+- **Say when I do not know something**, then say how I would find out. In control engineering, guessing is a genuine safety concern and interviewers know it
+- **Do not oversell the PLC programming.** Say honestly that my plant experience was Triconex and that I am actively building TIA Portal skills. Enthusiasm plus honesty beats an exaggeration that collapses under one follow up question
 
 ---
