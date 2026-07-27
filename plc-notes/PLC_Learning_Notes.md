@@ -27,6 +27,10 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 7. [Industrial Communication Protocols](#7-industrial-communication-protocols)
 8. [OPC, Open Platform Communications](#8-opc-open-platform-communications)
 
+**Part 4. Putting It Together**
+
+9. [The Basic SCADA Architecture](#9-the-basic-scada-architecture)
+
 **Appendix**
 
 - [MCQ Revision Bank](#appendix-a-mcq-revision-bank)
@@ -602,6 +606,107 @@ Very few graduate candidates can demonstrate that end to end chain. It directly 
 ---
 ---
 
+# Part 4. Putting It Together
+
+---
+
+## 9. The Basic SCADA Architecture
+
+This section is the capstone. It assembles everything from the earlier sections into one working system: field devices, PLCs, HMI, networks and remote sites.
+
+**SCADA** stands for **Supervisory Control and Data Acquisition**. Both halves of the name matter. It **acquires data** from across the plant, and it provides **supervisory control**, meaning it requests actions rather than executing them directly.
+
+### The architecture from the slide
+
+```
+   HMI ---- SCADA ------------ SCADA Master ----LAN---- Remote Location
+              |                                              |
+             PLC                                            PLC
+              |                                              |
+      +-------+-------+                                       |
+      |       |       |                                  Field device
+  Pushbutton Sensor  Control                             (transmitter)
+                     Valve
+```
+
+### Walking the diagram, bottom to top
+
+| Layer | What it is | Level |
+|---|---|---|
+| **Pushbutton, sensor, control valve** | Field devices. Two inputs and one output | Device |
+| **PLC** | Reads the inputs, runs the logic, drives the valve | Control |
+| **SCADA** | Local supervisory station. Displays, trends, alarms, logs | Management |
+| **HMI** | Operator interface panel attached to the system | Management |
+| **SCADA Master** | Central server that collects from multiple SCADA nodes and sites | Management |
+| **LAN** | The network linking the master to remote locations | Communication |
+| **Remote Location** | A second site with its own PLC and field devices | All three, replicated |
+
+### The key structural points
+
+**1. The PLC does the controlling, not SCADA.**
+The pushbutton and sensor wire into the PLC, and the PLC drives the control valve. SCADA sits above and watches. If the SCADA station is switched off, the PLC keeps controlling the process. This is the single most important thing the diagram is teaching.
+
+**2. SCADA Master is the hub, not just another screen.**
+A local SCADA station covers one area. The **master** aggregates several stations and sites into one plant wide picture. This is where OPC aggregation from section 8 is actually used.
+
+**3. The LAN is what makes it distributed.**
+The whole point of SCADA is supervising equipment that is **geographically spread out**. The LAN, or a WAN over a wider area, carries data from remote locations back to the master.
+
+**4. Remote locations mirror the same structure.**
+The remote site has its own PLC and its own field devices. It runs independently and reports back. It does not depend on the master to keep operating, which is exactly the resilience you want.
+
+### HMI vs SCADA, a distinction that gets confused
+
+| | HMI | SCADA |
+|---|---|---|
+| Scope | One machine or one area | Whole plant, often multiple sites |
+| Form | Usually a physical panel on or near the equipment | Software on a PC or server |
+| Function | Local operation and status | Supervision, trending, alarming, logging, reporting |
+| History | Little or none | Extensive, via a historian |
+| Location | On the plant floor | Control room |
+
+Simply put: **every SCADA system includes HMI functionality, but not every HMI is a SCADA system.**
+
+### RTU vs PLC, worth knowing for SCADA work
+
+Classic SCADA at remote sites often uses an **RTU**, a Remote Terminal Unit, rather than a PLC.
+
+| | PLC | RTU |
+|---|---|---|
+| Strength | Fast, complex control logic | Wide area telemetry and data collection |
+| Location | Usually on site, in a panel | Genuinely remote, for example a pipeline valve or a reservoir |
+| Power | Mains | Often solar or battery, low power |
+| Comms | Wired network | Radio, cellular, satellite |
+
+Modern PLCs increasingly do both jobs, so the distinction is fading, but the term still appears in SCADA job adverts, especially in **water and utilities**, which is a big UK employer.
+
+### Where SCADA is used
+- Water and wastewater networks, treatment works spread across a region
+- Electricity transmission and distribution, substations
+- Oil and gas pipelines
+- Large process plants, including fertilizer and chemical
+- Building management across multiple sites
+
+### Common SCADA products, useful names to recognise
+- **Siemens WinCC**, which pairs with TIA Portal, the one relevant to my path
+- Ignition by Inductive Automation, increasingly popular and named in Tesla job adverts
+- Wonderware, now AVEVA
+- Rockwell FactoryTalk View
+- GE iFIX and Cimplicity
+
+### Security note worth mentioning in an interview
+Because SCADA connects a control network to wider networks and often the internet, it is a **cyber security concern**. Stuxnet targeted exactly this kind of system. Good practice is network segmentation, firewalls between the control network and the business network, and a demilitarised zone for data that IT systems need.
+
+This is a genuinely current topic, and mentioning **OT security** shows awareness beyond the syllabus.
+
+### Relevant to me
+This diagram is essentially the architecture I worked inside at Fauji Fertilizer, with the DCS filling the SCADA and control role. The field devices I calibrated sit at the bottom, the marshalling cabinets are the wiring between the bottom two layers, and the Triconex ESD system runs alongside as an independent safety layer.
+
+It is also where my data work attaches. The SCADA Master and its historian are the source of the plant data that predictive maintenance models consume.
+
+---
+---
+
 # Appendix A. MCQ Revision Bank
 
 Every course quiz question collected, grouped by topic. Answer in bold, with the reasoning underneath and the distractors explained where they are worth knowing.
@@ -804,6 +909,18 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **OPC Classic vs OPC UA**
 > Classic was built on Windows COM and DCOM. OPC UA is platform independent with built in security, and is the modern Industry 4.0 standard.
+
+**What SCADA stands for and does**
+> Supervisory Control and Data Acquisition. It acquires data from across the plant and provides supervisory control, meaning it requests actions rather than executing them. The PLC still does the controlling.
+
+**HMI vs SCADA**
+> HMI is local, usually one machine or area, often a physical panel. SCADA is plant wide software with trending, alarming, logging and history. Every SCADA includes HMI functionality, but not every HMI is SCADA.
+
+**PLC vs RTU**
+> PLC is for fast complex control logic on site. RTU is for wide area telemetry at genuinely remote locations, often low power and on radio or cellular. The distinction is fading, but the term still appears in water and utilities job adverts.
+
+**Why SCADA is a security concern**
+> It connects the control network to wider networks, so it needs segmentation, firewalls between control and business networks, and a DMZ for data that IT needs. Stuxnet targeted exactly this kind of system.
 
 ---
 
