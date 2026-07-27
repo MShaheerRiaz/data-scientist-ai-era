@@ -19,10 +19,11 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 
 3. [PLCs and Distributed Control Systems](#3-plcs-and-distributed-control-systems)
 4. [PLC Components](#4-plc-components)
+5. [CPU Operation Modes](#5-cpu-operation-modes)
 
 **Part 3. Communication**
 
-5. [Industrial Communication Protocols](#5-industrial-communication-protocols)
+6. [Industrial Communication Protocols](#6-industrial-communication-protocols)
 
 **Appendix**
 
@@ -249,13 +250,81 @@ Two distinct meanings, do not confuse them:
 My BSc final year project, the Arduino based PLC module, contained every one of these four components. A regulated power supply, the microcontroller acting as CPU, input and output circuitry driving stepper, servo and DC motors, and the software I wrote plus the HMI dashboard. That is a genuine talking point in interviews, because it shows I have built a controller from first principles rather than only configured one.
 
 ---
+
+## 5. CPU Operation Modes
+
+Every PLC CPU runs in one of two fundamental modes.
+
+**Slide definitions**
+
+| Mode | Slide wording |
+|---|---|
+| **Programming mode** | Download logic from software |
+| **Run mode** | Execute and operate the program |
+
+**Put another way**
+
+| Mode | What the CPU is doing |
+|---|---|
+| **Programming mode** | Program is **not** executing. The CPU accepts a new program from the engineering software |
+| **Run mode** | Program **is** executing. The scan cycle runs continuously and outputs are live |
+
+### Programming mode
+Also called **STOP** mode on most real hardware.
+
+- Logic execution is **halted**
+- Outputs are switched to a safe state, normally all de-energised
+- Used to **download** a new or modified program into the CPU
+- Used for hardware configuration changes, such as adding an I/O module
+- The plant is not being controlled while in this mode
+
+### Run mode
+- The CPU continuously executes the scan cycle: read inputs, execute program, write outputs, repeat
+- Outputs are **live** and physically driving field devices
+- The engineer can still go **online** to monitor live values and trend the logic
+- This is the normal operating state of any working plant
+
+### What the vendors actually call these
+
+| | Siemens | Allen-Bradley |
+|---|---|---|
+| Programming | STOP | PROG |
+| Running | RUN | RUN |
+| Memory reset | MRES | n/a |
+| Software selectable | via TIA Portal | REM (remote), lets the software switch modes |
+
+Allen-Bradley's **REM** position is worth knowing. It hands mode control to the software, so an engineer can switch between program and run remotely rather than physically turning a key on the CPU.
+
+### The safety point that actually matters
+
+Switching a CPU from RUN to STOP **stops controlling the plant**. Outputs drop out. On a live process this can trip equipment, spill product, or in the worst case create a hazardous condition.
+
+Rules that follow from this:
+- Never change CPU mode on a live plant without a permit, an agreed procedure and operator awareness
+- Always confirm what state the outputs will fall to when the CPU stops
+- Safety systems such as ESD are deliberately independent of the main PLC, precisely so that stopping one controller does not remove protection
+
+### Downloading, the practical distinction
+
+- **Full download** normally requires the CPU to be in STOP or programming mode
+- **Online edit**, sometimes called run mode editing, lets small logic changes go in while the CPU stays in RUN. Supported by most modern platforms, but it must be done carefully because the change takes effect immediately on a live process
+
+### Related concept, forcing
+Forcing overrides an input or output to a value you choose, regardless of the real field signal. It is useful for commissioning and testing, for example proving a valve opens without waiting for the real process condition.
+
+Forcing is also genuinely dangerous, since the program is no longer reacting to reality. Forces must always be documented and removed before handover. Most CPUs light a dedicated LED whenever any force is active.
+
+### Relevant to me
+During the Fauji Fertilizer turnaround, loop checking is exactly the activity that depends on these modes and on forcing. The plant was down, controllers were not running the process, and signals were driven and verified end to end from field instrument through marshalling cabinet to the I/O card.
+
+---
 ---
 
 # Part 3. Communication
 
 ---
 
-## 5. Industrial Communication Protocols
+## 6. Industrial Communication Protocols
 
 Protocols are how the levels of the automation hierarchy actually talk to each other. Field instruments to controller, controller to controller, controller to SCADA.
 
@@ -349,5 +418,11 @@ The defining feature is that PROFIBUS uses a **single cable** to connect many de
 
 **What HART adds**
 > Bidirectional digital diagnostics layered over the existing 4 to 20 mA loop, with no rewiring.
+
+**The two CPU modes**
+> Programming mode downloads the logic. Run mode executes it. In programming mode the plant is not being controlled and outputs fall to a safe state.
+
+**What forcing is, and the catch**
+> Overriding an input or output regardless of the real field signal, used for commissioning and loop checks. The program is no longer reacting to reality, so forces must be documented and removed before handover.
 
 ---
