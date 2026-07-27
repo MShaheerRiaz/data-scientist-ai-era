@@ -20,10 +20,11 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 3. [PLCs and Distributed Control Systems](#3-plcs-and-distributed-control-systems)
 4. [PLC Components](#4-plc-components)
 5. [CPU Operation Modes](#5-cpu-operation-modes)
+6. [I/O System in Detail](#6-io-system-in-detail)
 
 **Part 3. Communication**
 
-6. [Industrial Communication Protocols](#6-industrial-communication-protocols)
+7. [Industrial Communication Protocols](#7-industrial-communication-protocols)
 
 **Appendix**
 
@@ -318,13 +319,133 @@ Forcing is also genuinely dangerous, since the program is no longer reacting to 
 During the Fauji Fertilizer turnaround, loop checking is exactly the activity that depends on these modes and on forcing. The plant was down, controllers were not running the process, and signals were driven and verified end to end from field instrument through marshalling cabinet to the I/O card.
 
 ---
+
+## 6. I/O System in Detail
+
+The I/O system is the interface between the PLC and the physical plant. Four types, split by signal nature and direction.
+
+> **Note on the slide.** The title reads "I/O System Input" but the content is labelled Output. The course reuses the same title slide for both. The values shown, 0 to 10 V DC or 4 to 20 mA, apply to **analogue** signals in both directions.
+
+### The four I/O types
+
+| Type | Abbreviation | Signal nature | Example device |
+|---|---|---|---|
+| Digital input | DI | On or off | Push button, limit switch, proximity sensor |
+| Digital output | DO | On or off | Relay, contactor, lamp, solenoid valve |
+| Analogue input | AI | Continuous value | Pressure, flow, level, temperature transmitter |
+| Analogue output | AO | Continuous value | Control valve positioner, VSD speed setpoint |
+
+---
+
+### Analogue signal values
+
+Same two standard ranges for both input and output.
+
+| Range | Notes |
+|---|---|
+| **4 to 20 mA** | Current loop. **The process industry standard** |
+| **0 to 10 V DC** | Voltage. Common on machines and drives |
+
+Other ranges exist but are less common: 0 to 20 mA, 1 to 5 V, and bipolar ranges such as -10 to +10 V for signals that need direction, for example a drive running forward and reverse.
+
+**Why 4 to 20 mA beats 0 to 10 V**
+
+| | 4 to 20 mA | 0 to 10 V |
+|---|---|---|
+| Noise immunity | Excellent, current is unaffected by induced noise | Poorer, picks up electrical noise |
+| Cable length | Long runs, hundreds of metres | Short runs only |
+| Voltage drop | Immune, current is constant along the loop | Signal degrades over distance |
+| Fault detection | **Yes**, live zero | No, 0 V is ambiguous |
+
+**Live zero, the key concept**
+
+The signal starts at 4 mA, not 0 mA, on purpose.
+
+- 4 mA = 0 percent of range
+- 20 mA = 100 percent of range
+- **0 mA = broken wire or dead instrument**
+
+If it started at 0 mA there would be no way to distinguish a genuine zero reading from a failed loop. This is fault detection built into the signal standard itself.
+
+**Scaling example.** A pressure transmitter ranged 0 to 10 bar:
+
+| Current | Pressure |
+|---|---|
+| 4 mA | 0 bar |
+| 8 mA | 2.5 bar |
+| 12 mA | 5 bar |
+| 20 mA | 10 bar |
+| 0 mA | Fault, loop broken |
+
+**Resolution.** Analogue modules convert between the real world signal and an integer the CPU can use. Typically 12, 14 or 16 bit. A 16 bit module gives 65536 steps across the range, which is far finer than any field instrument actually needs, so accuracy is normally limited by the instrument rather than the card.
+
+---
+
+### Digital signal values
+
+This is the part the slide did not cover.
+
+**Digital inputs, typical values**
+
+| Voltage | Where used |
+|---|---|
+| **24 V DC** | **The industrial standard.** Most modern PLC inputs |
+| 110 or 230 V AC | Older installations, or where field devices are mains powered |
+| 5 V DC / TTL | Electronics and board level, rare on industrial PLCs |
+| 48 V DC | Occasional, some legacy and rail applications |
+
+**Digital outputs, typical values and module types**
+
+| Output type | Typical rating | Behaviour |
+|---|---|---|
+| **Transistor** | **24 V DC**, roughly 0.5 to 2 A per channel | Fast switching, solid state, long life. DC only |
+| **Relay** | 24 V DC or up to 230 V AC, roughly 2 A | Volt free contact, switches AC or DC, slower, mechanically wears out |
+| **Triac** | 110 or 230 V AC | Solid state AC switching |
+
+**How to choose**
+- **Transistor** for fast, frequently switched DC loads, for example solenoid valves and pilot lights
+- **Relay** when you need a **volt free or dry contact**, when switching AC, or when the load voltage differs from the PLC supply
+- **Triac** for AC loads that switch often, where a relay would wear out
+
+**Important limitation.** PLC outputs are low current. They do **not** drive a motor directly. The output energises a **contactor or relay coil**, and that contactor switches the motor's power circuit. The PLC handles control, not power.
+
+---
+
+### Sinking and sourcing
+
+Trips up nearly every beginner, and it comes up in interviews.
+
+| Term | Meaning |
+|---|---|
+| **Sourcing** | The device **supplies** positive current out. Corresponds to **PNP** sensors |
+| **Sinking** | The device **receives** current in, providing the path to 0 V. Corresponds to **NPN** sensors |
+
+The rule: **a sourcing device must pair with a sinking device.** A PNP sourcing sensor connects to a sinking input card, and vice versa. Get it backwards and the input simply never registers, with no obvious fault to see.
+
+Regional habit worth knowing: **PNP sourcing is the norm in Europe**, NPN sinking is more common in Asia.
+
+---
+
+### Other points worth knowing
+
+- **Isolation.** Good I/O modules are optically isolated, so a fault in the field cannot damage the CPU
+- **Channel count.** Modules typically come in 8, 16 or 32 channels
+- **Local vs remote I/O.** Local sits in the CPU rack. Remote I/O sits out in the plant and connects back over PROFINET or PROFIBUS, saving enormous amounts of cabling
+- **Specialty modules.** High speed counters, motion and positioning, PID, thermocouple and RTD, weighing, and communication modules
+- **Safety I/O.** A separate certified category for emergency stops and interlocks, for example Siemens Safety Integrated or Triconex
+- **Intrinsically safe I/O.** Required in hazardous areas such as fertilizer, oil and gas. Limits energy into the field so it cannot ignite an explosive atmosphere
+
+### Relevant to me
+The transmitters I calibrated at Fauji Fertilizer, flow, pressure, level and temperature, were 4 to 20 mA analogue inputs. Loop checking is precisely the exercise of proving that signal path end to end, from the instrument through the marshalling cabinet to the correct channel on the analogue input card. Being able to explain live zero and why a 0 mA reading means a broken loop is a strong, specific answer in an interview.
+
+---
 ---
 
 # Part 3. Communication
 
 ---
 
-## 6. Industrial Communication Protocols
+## 7. Industrial Communication Protocols
 
 Protocols are how the levels of the automation hierarchy actually talk to each other. Field instruments to controller, controller to controller, controller to SCADA.
 
@@ -424,5 +545,14 @@ The defining feature is that PROFIBUS uses a **single cable** to connect many de
 
 **What forcing is, and the catch**
 > Overriding an input or output regardless of the real field signal, used for commissioning and loop checks. The program is no longer reacting to reality, so forces must be documented and removed before handover.
+
+**Standard signal values**
+> Analogue: 4 to 20 mA or 0 to 10 V DC, both directions. Digital: 24 V DC is the industrial standard, with 110 or 230 V AC on older or mains powered equipment.
+
+**Sinking vs sourcing**
+> Sourcing supplies current out and matches PNP. Sinking receives current and matches NPN. A sourcing device must pair with a sinking one, otherwise the input never registers.
+
+**Why a PLC output cannot run a motor**
+> Outputs are low current. The output energises a contactor coil, and the contactor switches the motor power circuit. The PLC does control, not power.
 
 ---
