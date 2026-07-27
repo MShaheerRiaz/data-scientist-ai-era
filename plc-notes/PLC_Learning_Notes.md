@@ -29,7 +29,7 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 
 **Appendix**
 
-- [Quiz Answers](#appendix-a-quiz-answers)
+- [MCQ Revision Bank](#appendix-a-mcq-revision-bank)
 - [Interview Quick Reference](#appendix-b-interview-quick-reference)
 - [Interview Questions and Model Answers](#appendix-c-interview-questions-and-model-answers)
 
@@ -563,6 +563,16 @@ Server supplies, client consumes. One server can serve many clients at once, whi
 
 Aggregation is the one that matters most in practice. It is how a plant wide SCADA screen shows data from a dozen different PLCs at once.
 
+**Memory hook:** Aggregate = gather many. Tunnel = go through. Bridge = span between two of the same thing.
+
+### OPC middleware, Cogent DataHub
+
+Named in the course, worth knowing as an example of the product category.
+
+Cogent DataHub is middleware that sits in the middle of an OPC architecture. Its defining feature is that it acts as **both an OPC server and an OPC client at the same time**.
+
+That dual role is what makes it useful. It can consume data as a client from one system and republish it as a server to another, which is exactly what aggregation, tunnelling and bridging all require. One product covers all four connection scenarios.
+
 ### OPC Classic vs OPC UA, worth knowing
 
 | | OPC Classic (DA, HDA, A&E) | **OPC UA** (Unified Architecture) |
@@ -592,12 +602,156 @@ Very few graduate candidates can demonstrate that end to end chain. It directly 
 ---
 ---
 
-# Appendix A. Quiz Answers
+# Appendix A. MCQ Revision Bank
 
-| Question | Answer |
-|---|---|
-| What is ControlNet used for in industrial automation? | Real time data transfer between devices on a network |
-| Implementing a new automation system, main concern is that logic and design are correctly implemented. Which level do you focus on? | Control and Management levels |
+Every course quiz question collected, grouped by topic. Answer in bold, with the reasoning underneath and the distractors explained where they are worth knowing.
+
+**How to revise with this:** cover the answer, read the question, commit to an option, then check. The reasoning matters more than the answer, because interviewers ask the same concepts in open form.
+
+---
+
+## A1. PLC fundamentals
+
+**Q. What is the primary function of a programmable logic controller in an industrial setting?**
+
+- to handle customer service inquiries and manage databases
+- to perform complex computational tasks and simulations
+- **to continuously monitor the state of input devices and make decisions to control output devices** ✅
+- to store large amounts of data for long term analysis
+
+> This is the scan cycle described in plain language. Read inputs, decide, drive outputs, repeat. A PLC is not a general purpose computer and it is not a database. Note the word **continuously**, which is what distinguishes it from a PC running a program once.
+
+---
+
+**Q. You are setting up a PLC system and need to ensure it can handle both digital and analogue input signals. Which component of the PLC system will you primarily focus on?**
+
+- the power supply
+- **the I/O system** ✅
+- the CPU
+- the PLC programming software
+
+> The I/O system is the interface to the physical world, and it is where you select modules by signal type. Digital input, digital output, analogue input, analogue output. The CPU runs the logic but does not determine what signal types the system can accept.
+
+---
+
+**Q. You are tasked with implementing a control system to regulate the flow of materials on a conveyor belt. Which key feature of a PLC makes it suitable?**
+
+- capacity to store complex mathematical algorithms
+- ability to act as a primary data storage system
+- **high speed response to changes in input signals** ✅
+- functionality to provide multimedia content to users
+
+> A conveyor needs the controller to react the instant a sensor changes state. That is determinism and speed, which is exactly what a PLC is built for. Storage and heavy computation are what PCs and historians are for.
+
+---
+
+**Q. What is the purpose of the IEC 61131-3 international standard?**
+
+- It sets safety protocols for industrial machinery operations
+- **It defines the specifications required for languages that operate programmable logic controllers** ✅
+- It provides guidelines for electrical wiring standards
+- It outlines best practices for software development in general
+
+> IEC 61131-3 standardises the five PLC programming languages: Ladder Diagram, Function Block Diagram, Structured Text, Sequential Function Chart and Instruction List.
+>
+> **Why this matters to me:** this standard is the reason skills transfer between vendors. Ladder logic learned on CODESYS works on Siemens and Allen-Bradley too.
+>
+> Do not confuse it with **IEC 61508 and 62061**, which are the functional **safety** standards.
+
+---
+
+## A2. Automation system levels
+
+**Q. You are tasked with implementing a new automation system in a factory. Which level will you focus on if your main concern is ensuring that logic and design are correctly implemented?**
+
+- OPC level
+- Field level
+- Device synchronization level
+- **Control and Management levels** ✅
+
+> Logic lives at the **control** level, in the PLC or DCS program. Design and visualisation live at the **management** level, in the HMI and SCADA. Together they are where implementation correctness is decided.
+>
+> Note that "OPC level" and "Device synchronization level" are not real levels in the hierarchy. They are invented distractors.
+
+---
+
+**Q. You are reviewing the HMI for a mixing project within a factory. What information would you expect the HMI to display?**
+
+- The financial reports of the factory
+- The list of employees working on the project
+- The maintenance schedule for factory equipment
+- **The status of the valve and the level of the tank** ✅
+
+> An HMI shows **live process data**: valve open or closed, tank level, temperatures, pressures, alarms and setpoints. Financial reports and staff lists belong to business IT systems, not the operator interface. Maintenance schedules sit in a CMMS.
+>
+> Remember the levels. HMI is the management level view of the **process**, not of the business.
+
+---
+
+## A3. Communication protocols
+
+**Q. What is ControlNet used for in industrial automation?**
+
+- energy management in smart grids
+- managing security protocols in IT systems
+- **real time data transfer between devices on a network** ✅
+- programming industrial robots
+
+> ControlNet is a Rockwell and Allen-Bradley industrial network protocol. Its defining feature is **deterministic** real time communication, meaning data arrives within a guaranteed time window.
+>
+> The distractors map to other things: smart grids are IEC 61850, and robots are programmed in vendor software rather than over a network protocol.
+
+---
+
+## A4. OPC
+
+**Q. You are configuring a network where an OPC client needs to connect to multiple OPC servers. What is this scenario called?**
+
+- OPC tunneling
+- OPC bridging
+- **OPC aggregation** ✅
+- OPC standardization
+
+> **Aggregation** = one client, many servers, combined into a single view. This is how a plant wide SCADA screen shows data from a dozen different PLCs at once.
+
+---
+
+**Q. You need to connect an OPC client to an OPC server over a network. What method will you use?**
+
+- **tunneling** ✅
+- forwarding
+- tagging
+- bridging
+
+> **Tunnelling** carries OPC data securely across a network, between sites or through a firewall. It was originally created to avoid the pain of configuring DCOM across networks in OPC Classic.
+
+---
+
+**Q. What functionality does the Cogent DataHub provide in an industrial automation environment?**
+
+- **It can act as both an OPC server and client simultaneously** ✅
+- It is solely used as an OPC server
+- It only provides database management capabilities
+- It functions exclusively as an OPC client
+
+> Cogent DataHub is middleware that sits in the middle of an OPC architecture. Because it is **both server and client at once**, it can consume data from one system and republish it to another, which is what makes aggregation, tunnelling and bridging practical in one product.
+
+---
+
+### The four OPC scenarios, side by side
+
+Worth memorising as a set, since the quiz tests them against each other.
+
+| Scenario | Shape | One line |
+|---|---|---|
+| **Single** | 1 client to 1 server | The simplest case |
+| **Aggregation** | 1 client to **many** servers | Combine many controllers into one view |
+| **Tunnelling** | Across a **network** or firewall | Site to site, done securely |
+| **Bridging** | **Server to server** | Direct transfer, no application in the middle |
+
+**Memory hook:** Aggregate = gather many. Tunnel = go through. Bridge = span across between two of the same thing.
+
+---
 
 ---
 
