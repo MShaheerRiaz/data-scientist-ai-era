@@ -31,6 +31,10 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 
 9. [The Basic SCADA Architecture](#9-the-basic-scada-architecture)
 
+**Part 5. Ladder Logic Programming**
+
+10. [Ladder Logic Input Instructions](#10-ladder-logic-input-instructions)
+
 **Appendix**
 
 - [MCQ Revision Bank](#appendix-a-mcq-revision-bank)
@@ -707,6 +711,118 @@ It is also where my data work attaches. The SCADA Master and its historian are t
 ---
 ---
 
+# Part 5. Ladder Logic Programming
+
+---
+
+## 10. Ladder Logic Input Instructions
+
+Input instructions are the **conditions** on a rung. They sit on the left and decide whether power can flow through to the output on the right.
+
+There are two of them, and understanding the difference properly is the foundation of everything that follows.
+
+### The two symbols
+
+```
+    XIC                              XIO
+  Examine if Closed              Examine if Open
+
+  ----| |----                    ----|/|----
+
+  True when the bit is 1         True when the bit is 0
+  (ON  / energised)              (OFF / de-energised)
+```
+
+| | XIC | XIO |
+|---|---|---|
+| Full name | Examine if Closed | Examine if Open |
+| Symbol | `----| |----` | `----|/|----` |
+| Also called | Normally Open contact, NO | Normally Closed contact, NC |
+| Passes power when the bit is | **1, ON, TRUE** | **0, OFF, FALSE** |
+| Blocks power when the bit is | 0, OFF, FALSE | 1, ON, TRUE |
+| Siemens name | Normally open contact | Normally closed contact |
+
+The distinguishing mark is the **forward slash** through the XIO symbol. Slash means invert.
+
+### The trap that catches everyone
+
+**XIC and XIO describe what the instruction examines in memory, not the physical state of the field device.**
+
+This wording confuses nearly every beginner, so state it precisely:
+
+- **XIC** asks: *is this bit currently 1?* If yes, pass power.
+- **XIO** asks: *is this bit currently 0?* If yes, pass power.
+
+The instruction has no idea whether the actual switch in the field is a normally open or normally closed device. It only reads the bit in the input image table.
+
+### Why that distinction bites in the real world
+
+A **stop button is wired normally closed** in industry, for fail safe reasons. While nobody is pressing it, the circuit is complete and the input bit is **1**.
+
+So in the program you use an **XIC** for the stop button, even though it is a normally closed device.
+
+| Field device | Physical wiring | Bit when idle | Instruction used |
+|---|---|---|---|
+| Start button | Normally open | 0 | **XIC**, becomes 1 when pressed |
+| Stop button | **Normally closed** | **1** | **XIC**, drops to 0 when pressed |
+| Emergency stop | **Normally closed** | **1** | **XIC**, drops to 0 when pressed |
+| Proximity sensor detecting a part | Normally open | 0 | XIC |
+| Fault or alarm bit, act when healthy | n/a, internal | 0 when healthy | **XIO** |
+
+**Why stop buttons are wired normally closed:** if the wire breaks or the button fails, the circuit opens, the bit goes to 0, and the machine **stops**. Failure produces the safe outcome. A normally open stop button with a broken wire would leave you unable to stop the machine, which is exactly the wrong failure mode.
+
+This is the same fail safe philosophy as live zero on a 4 to 20 mA loop, from section 6. Both are designed so a failure is detectable and lands in a safe state.
+
+### Reading rungs, worked examples
+
+Power flows left to right. All conditions in series must be true.
+
+**Series, logical AND**
+```
+    Start          Stop           Motor
+  ----| |---------| |------------(  )----
+```
+Motor runs only when the Start bit is 1 **and** the Stop bit is 1. Because Stop is wired normally closed, its bit is 1 while nobody is pressing it, so this rung behaves correctly.
+
+**Parallel, logical OR**
+```
+   Button_A        Lamp
+  ----| |-----+----(  )----
+              |
+   Button_B   |
+  ----| |-----+
+```
+Lamp is on when Button A is 1 **or** Button B is 1.
+
+**Using XIO to invert**
+```
+    Fault          Ready
+  ----|/|-----------(  )----
+```
+Ready is on only when the Fault bit is **0**. The XIO inverts the condition, so this reads as "if not faulted, then ready".
+
+### Vendor terminology, worth knowing
+
+**XIC and XIO are Allen-Bradley terms.** Since I am going Siemens, the equivalents are:
+
+| Concept | Allen-Bradley | Siemens |
+|---|---|---|
+| Pass when bit is 1 | XIC, Examine if Closed | Normally open contact |
+| Pass when bit is 0 | XIO, Examine if Open | Normally closed contact |
+| Set an output | OTE, Output Energise | Coil, assignment |
+
+The **symbols and the logic are identical** because both follow IEC 61131-3. Only the naming differs. So learning XIC and XIO here transfers directly to TIA Portal, where they are simply called normally open and normally closed contacts.
+
+### Quick recall
+> Two vertical bars, pass when 1. Add a slash, pass when 0.
+> The slash means "not".
+
+### Relevant to me
+This connects directly to the Triconex ladder logic I wrote at Fauji Fertilizer, and to the loop checking work. Knowing that a stop button reads as 1 while idle is exactly the sort of detail that matters when proving a loop end to end, because the "correct" reading at rest is the opposite of what a beginner would guess.
+
+---
+---
+
 # Appendix A. MCQ Revision Bank
 
 Every course quiz question collected, grouped by topic. Answer in bold, with the reasoning underneath and the distractors explained where they are worth knowing.
@@ -918,6 +1034,12 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **PLC vs RTU**
 > PLC is for fast complex control logic on site. RTU is for wide area telemetry at genuinely remote locations, often low power and on radio or cellular. The distinction is fading, but the term still appears in water and utilities job adverts.
+
+**XIC vs XIO**
+> XIC, examine if closed, passes power when the bit is 1. XIO, examine if open, passes power when the bit is 0. The slash means not. They examine the bit in memory, not the physical state of the field device.
+
+**Why is a stop button programmed with an XIC when it is a normally closed device**
+> Because it is wired normally closed, its input bit reads 1 while nobody is pressing it. Pressing it drops the bit to 0 and breaks the rung. Wiring it normally closed means a broken wire also stops the machine, so failure lands in the safe state.
 
 **Why SCADA is a security concern**
 > It connects the control network to wider networks, so it needs segmentation, firewalls between control and business networks, and a DMZ for data that IT needs. Stuxnet targeted exactly this kind of system.
