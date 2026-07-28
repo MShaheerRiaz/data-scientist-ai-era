@@ -1456,6 +1456,20 @@ The four fields, timer name, timer base, preset, accumulated value, describe **h
 |---|---|---|
 | **.EN** | Enable | The timer rung condition is true. The timer is switched on, whether or not it is actively counting |
 | **.TT** | Timer Timing | The timer is **actively counting**. True only between being enabled and reaching preset |
+
+**Slide definitions, exact wording, three versions of the same rule**
+
+> Timer timing bit is true only when the accumulator is incrementing, until the accumulator reaches the preset value.
+> The timer timing bit is true whenever the rung is true and the timer is timing.
+> The timer timing bit is true whenever the rung is true **and** the accumulated value is **less than** the preset value.
+
+The third version is the precise one, since it states both conditions **TT needs together**: rung true, **and** accumulated **less than** preset. Drop either one and TT is false.
+
+**The handoff, stated directly on its own slide**
+
+> **When the done bit is set, the timer timing bit resets.**
+
+This is the same DN/TT relationship already in the timeline table above, now given as an explicit rule rather than just observed behaviour. The moment `.DN` sets, `.TT` clears, in the same scan. There is no overlap.
 | **.DN** | Done | Accumulated value has **reached** preset. Stays true while the rung stays enabled |
 
 **Slide definition, exact wording**
