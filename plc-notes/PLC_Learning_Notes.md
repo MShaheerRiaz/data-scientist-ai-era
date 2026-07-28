@@ -34,6 +34,7 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 **Part 5. Ladder Logic Programming**
 
 10. [Ladder Logic Input Instructions](#10-ladder-logic-input-instructions)
+11. [Ladder Logic Output Instructions](#11-ladder-logic-output-instructions)
 
 **Appendix**
 
@@ -920,6 +921,132 @@ The **symbols and the logic are identical** because both follow IEC 61131-3. Onl
 This connects directly to the Triconex ladder logic I wrote at Fauji Fertilizer, and to the loop checking work. Knowing that a stop button reads as 1 while idle is exactly the sort of detail that matters when proving a loop end to end, because the "correct" reading at rest is the opposite of what a beginner would guess.
 
 ---
+
+## 11. Ladder Logic Output Instructions
+
+Output instructions sit at the **right hand end** of a rung. They are what the rung actually does when its conditions are satisfied.
+
+Three of them, and the difference between the first and the other two is the concept of **retention**.
+
+### The three symbols
+
+```
+   OTE                OTL                OTU
+  ----(  )----      ----( L )----      ----( U )----
+
+  Output Energise   Output Latch       Output Unlatch
+  follows the rung  sets to 1, holds   resets to 0
+```
+
+| | OTE | OTL | OTU |
+|---|---|---|---|
+| Name | Output Energise | Output Latch | Output Unlatch |
+| Symbol | `----(  )----` | `----( L )----` | `----( U )----` |
+| Rung TRUE | Sets bit to **1** | Sets bit to **1** | Sets bit to **0** |
+| Rung FALSE | Sets bit to **0** | **Leaves it alone** | **Leaves it alone** |
+| Retentive | **No** | **Yes** | **Yes** |
+| Siemens name | Coil, assignment | **S**, Set | **R**, Reset |
+
+---
+
+### OTE, Output Energise
+
+**The bit follows the rung exactly.** True energises it, false de-energises it. Nothing is remembered.
+
+```
+    Switch            Lamp
+  ----| |------------(  )----
+```
+Hold the switch, the lamp is on. Release it, the lamp goes off immediately.
+
+**The rule that catches beginners: never use the same OTE address on two rungs.**
+
+```
+   Start           Motor
+  ----| |---------(  )----      <- rung 5
+
+   Stop            Motor
+  ----| |---------(  )----      <- rung 20, SAME address
+```
+
+This is **double coil syndrome**. Because the CPU executes top to bottom and writes outputs at the end of the scan, only the **last** rung to touch that address decides the final state. Rung 5 is effectively ignored. It is legal, it does not error, and it silently breaks your program. Most engineering software will warn you, and you should treat the warning as an error.
+
+---
+
+### OTL and OTU, latch and unlatch
+
+These are **retentive**. They change the bit and then leave it, regardless of what the rung does afterwards.
+
+```
+    Start            Motor
+  ----| |---------( L )----      <- press once, motor stays on
+
+    Stop             Motor
+  ----| |---------( U )----      <- press once, motor stays off
+```
+
+Press Start for a moment and release it. The motor **stays running**, because OTL set the bit to 1 and nothing has reset it. Only the OTU rung can turn it off.
+
+**They always come in pairs.** An OTL with no matching OTU is a bit you can never switch off, which is a bug rather than a design.
+
+---
+
+### The safety point, and it is a serious one
+
+**Latched bits survive a CPU stop and a power cycle**, because they are stored in retentive memory.
+
+That means if you latch a motor output and the plant loses power, when power returns **the motor can restart on its own**, with nobody having pressed anything. That is exactly the hazard that machine safety standards are written to prevent.
+
+Rules that follow:
+- **Never latch a safety critical output.** Emergency stops, safety interlocks and anything that could injure someone must not depend on a latched bit
+- Prefer a **seal-in rung** over OTL and OTU for motor start and stop, because a seal-in de-energises naturally on power loss
+- If you must latch, design an explicit start up routine that unlatches everything on first scan
+
+### Seal-in, the preferred alternative
+
+The same start and stop behaviour, built from OTE and a feedback contact rather than a latch:
+
+```
+    Start      Stop        Motor
+  ----| |------| |---------(  )----
+     |                       |
+    Motor                    |
+  ----| |------------------- +
+```
+
+The **Motor contact in parallel with Start** is the seal-in, sometimes called the holding contact. Once the motor is on, its own contact keeps the rung true after Start is released. Pressing Stop breaks the rung and it drops out.
+
+**Why this is better than OTL and OTU:** it is a plain OTE, so it de-energises on power loss and cannot restart on its own. This is the single most important rung pattern in industrial ladder logic, and it is the first one worth being able to write from memory.
+
+---
+
+### Siemens equivalents
+
+| Concept | Allen-Bradley | Siemens |
+|---|---|---|
+| Follows the rung | OTE | Coil `( )`, assignment |
+| Set and hold | OTL | **S**, Set coil |
+| Reset | OTU | **R**, Reset coil |
+| Combined block | n/a | **SR** and **RS** flip flops |
+
+Siemens also offers **SR** (set dominant) and **RS** (reset dominant) blocks, which combine set and reset into a single element and make the priority explicit. Worth knowing which one dominates, because that decides what happens when set and reset are both true at once. For anything safety related you want **reset dominant**.
+
+---
+
+### Quick reference
+
+| Rung state | OTE | OTL | OTU |
+|:---:|:---:|:---:|:---:|
+| **TRUE** | bit → 1 | bit → 1 | bit → 0 |
+| **FALSE** | bit → 0 | no change | no change |
+
+> OTE forgets. OTL and OTU remember.
+> If you latch it, you must plan how to unlatch it.
+
+### Relevant to me
+The Arduino based PLC module in my BSc final year project used exactly this pattern. Motor start and stop with a holding condition is the same seal-in logic, implemented in code rather than in ladder. And the safety reasoning here, that a latched output can restart itself after a power cut, is the same fail safe thinking behind normally closed stop buttons and live zero on a 4 to 20 mA loop.
+
+---
 ---
 
 # Appendix A. MCQ Revision Bank
@@ -1136,6 +1263,18 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **XIC vs XIO**
 > XIC `----| |----` is TRUE when the bit is **1**. XIO `----|/|----` is TRUE when the bit is **0**. Exact opposites. The slash means not. Both examine the bit in memory, not the physical state of the field device.
+
+**OTE vs OTL vs OTU**
+> OTE `( )` follows the rung, true sets the bit to 1 and false sets it to 0. OTL `( L )` sets to 1 and holds. OTU `( U )` resets to 0. OTL and OTU are retentive and always used as a pair.
+
+**What is double coil syndrome**
+> The same OTE address written on two rungs. The CPU executes top to bottom and writes outputs at the end of the scan, so only the last rung decides the final state. It does not error, it just silently breaks the logic.
+
+**Why not latch a motor output**
+> Latched bits are retentive and survive a power cycle, so the motor could restart on its own when power returns with nobody pressing anything. Use a seal-in rung instead, which de-energises naturally on power loss.
+
+**What is a seal-in rung**
+> Start in parallel with a contact of the output itself, in series with a normally closed stop. The output's own contact holds the rung true after the start button is released. The most important pattern in industrial ladder logic.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
