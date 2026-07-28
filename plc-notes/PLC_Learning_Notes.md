@@ -1615,6 +1615,61 @@ This is exactly the shape in the diagram. Fan on immediately, fan stays on past 
 ### Relevant to me
 This is directly the kind of protection logic behind motor cooling and safe shutdown sequencing at a plant like Fauji Fertilizer, where equipment does not simply stop the instant a Stop button is pressed. Recognising TOF as the instruction behind "runs on a bit after stopping" is a genuinely useful, specific thing to be able to say in an interview.
 
+---
+
+### Building a Flasher, Two TON Timers Watching Each Other
+
+A classic pattern, worth understanding well since it turns up as an interview whiteboard question. Both blocks here are **TON**, Timer On Delay, not TOF. "ON Timer" and "OFF Timer" are just the names chosen for them, not different instruction types, easy to mix up right after learning TOF.
+
+```
+   OFF Timer.DN                              TON, named "ON Timer"
+  ----|/|--------------------------------[ base 0.1s  preset 60 ]----
+      (XIO)                                  60 x 0.1s = 6 seconds
+
+   ON Timer.DN                               TON, named "OFF Timer"
+  ----| |--------------------------------[ base 0.1s  preset 20 ]----
+      (XIC)                                  20 x 0.1s = 2 seconds
+```
+
+**What each rung says**
+
+- Rung 1, XIO on `OFF Timer.DN`, drives the **ON Timer**. It runs only while OFF Timer's done bit is **0**
+- Rung 2, XIC on `ON Timer.DN`, drives the **OFF Timer**. It runs only while ON Timer's done bit is **1**
+
+**One full cycle, step by step**
+
+- **t = 0.** Both timers at 0, both DN bits at 0
+- OFF Timer.DN is 0, so rung 1 is true, **ON Timer starts counting**
+- ON Timer.DN is still 0, so rung 2 is false, **OFF Timer stays at 0**
+- **t = 6s.** ON Timer reaches preset. **ON Timer.DN flips to 1**
+- Rung 2 is now true. **OFF Timer starts counting.** ON Timer.DN holds at 1, since rung 1 is still true, OFF Timer.DN is still 0
+- **t = 8s** (2 seconds later). OFF Timer reaches preset. **OFF Timer.DN flips to 1**
+- Rung 1 goes false (XIO reads a 1 as false). **ON Timer loses power, resets to 0**
+- ON Timer.DN drops to 0. Rung 2 goes false. **OFF Timer loses power, resets to 0**
+- OFF Timer.DN is back to 0. Rung 1 is true again. **The whole thing restarts**, no external trigger needed
+
+**Timeline table**
+
+| Time | ON Timer state | ON Timer.DN | OFF Timer state | OFF Timer.DN |
+|---|---|:---:|---|:---:|
+| t = 0s | starts counting | 0 | held at 0 | 0 |
+| t = 6s | reaches preset | **1** | starts counting | 0 |
+| t = 8s | resets to 0 | **0** | reaches preset then resets | 1 then **0** |
+| t = 8s = new t = 0 | starts counting again | 0 | held at 0 | 0 |
+
+**Why it self-sustains, the mutual reset**
+
+- Neither timer switches itself off. **Each one is switched off by the other finishing**
+- ON Timer runs, then hands control to OFF Timer by going done
+- OFF Timer runs, then kills ON Timer by going done, which then kills OFF Timer too, since OFF Timer only exists while ON Timer.DN is true
+- That chain reaction resets both back to zero simultaneously, then it repeats forever. This is an **oscillator**, sometimes called a flasher circuit, built from nothing but two ordinary timers cross-referencing each other's done bits
+
+**Where a lamp would actually connect**
+
+- `ON Timer.DN` itself sits at **0 for 6 seconds, then 1 for 2 seconds**, every cycle, an 8 second total period
+- This diagram only shows the oscillator engine, not a lamp. A third rung would typically read `ON Timer.DN` with an **XIO** to drive a lamp, giving **lamp on for 6 seconds** (while DN is 0) and **lamp off for 2 seconds** (while DN is 1)
+- Swap which bit and which instruction type the lamp rung uses, and the same two timers can produce many different on/off ratios without changing the oscillator itself
+
 ### The practical pattern, worked with real addressing
 
 ```
@@ -1900,6 +1955,9 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **TON vs TOF**
 > TON, timer on delay, delays switching ON, DN waits for the preset after the rung goes true but drops immediately when the rung drops. TOF, timer off delay, is the opposite, DN sets immediately when the rung goes true but waits for the preset after the rung drops before switching off. Classic TOF use case, a motor cooling fan that keeps running for a preset time after the motor stops.
+
+**How do you build an oscillator from two TON timers**
+> One timer's rung reads the other timer's DN with an XIO, the other timer's rung reads the first timer's DN with an XIC. Each timer runs until it goes done, which enables the other timer, which eventually goes done itself and disables the first timer, which then disables the second. The mutual reset repeats forever. Both blocks are TON, the names given to them do not change the instruction type.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
