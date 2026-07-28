@@ -930,6 +930,58 @@ So in the program you use an **XIC** for the stop button, even though it is a no
 
 This is the same fail safe philosophy as live zero on a 4 to 20 mA loop, from section 6. Both are designed so a failure is detectable and lands in a safe state.
 
+### The full worked example, one NO pushbutton, both instructions
+
+This is the example that makes everything click. **One physical device**, a normally open pushbutton, examined two different ways. Four possible cases.
+
+**Step 1, what the field device does**
+
+| Pushbutton state | Contact | Bit value |
+|---|---|---|
+| Not pressed | Open | **0** |
+| Pressed | Closed | **1** |
+
+**Step 2, what each instruction does with that bit**
+
+```
+                XIC  ----| |----              XIO  ----|/|----
+                (true when bit = 1)           (true when bit = 0)
+
+              Pushbutton     Light          Pushbutton     Light
+NOT       ----| |----------(   )----    ===|/|=========(   )===
+PRESSED        bit = 0                       bit = 0
+               FALSE                         TRUE
+               Light OFF                     Light ON   <-- lit
+
+              Pushbutton     Light          Pushbutton     Light
+PRESSED   ===| |==========(   )===      ----|/|----------(   )----
+               bit = 1                       bit = 1
+               TRUE                          FALSE
+               Light ON   <-- lit            Light OFF
+```
+
+**Step 3, the summary table**
+
+| Pushbutton | Bit | XIC rung | Light | XIO rung | Light |
+|---|:---:|---|:---:|---|:---:|
+| Not pressed | 0 | FALSE | **OFF** | TRUE | **ON** ✅ |
+| Pressed | 1 | TRUE | **ON** ✅ | FALSE | **OFF** |
+
+### What this proves
+
+**The same physical button produces opposite behaviour depending only on which instruction you choose.**
+
+- With **XIC**, the light works normally. Press to turn on, release to turn off
+- With **XIO**, the light is inverted. It sits on, and pressing the button turns it **off**
+
+Nothing changed in the field. No rewiring, no different button. The behaviour was decided entirely in software.
+
+This is the practical demonstration of the vocabulary point from the start of this section. **The field device is normally open. The instruction is your choice.** They are independent, and the instruction is what determines the logic.
+
+**Useful way to hold it:** the XIO rung is the classic "on unless" pattern. Light on unless the button is pressed, motor running unless a fault is set, ready unless not healthy.
+
+---
+
 ### Reading rungs, worked examples
 
 Power flows left to right. All conditions in series must be true.
