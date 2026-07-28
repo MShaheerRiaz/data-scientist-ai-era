@@ -1512,6 +1512,47 @@ Rung condition (the input enabling the timer) goes true at t = 0, timer reaches 
 
 **Read down the .TT column and the .DN column together.** They are never both 1 at the same time. TT is true only *while counting toward* the preset. DN is true only *once it has reached* the preset. One switches off exactly when the other switches on.
 
+### Course timing diagram, two pulses, preset 20s
+
+A second worked case, from the actual course diagram, showing what happens when the rung does **not** stay true long enough to finish. Preset is 20 seconds throughout.
+
+```
+Rung        __/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\__________/‾‾‾‾‾‾‾‾\____
+                  |<------ 40 seconds ------>|            10 s
+
+Enable      __/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\__________/‾‾‾‾‾‾‾‾\____
+   (.EN)        matches the rung exactly, both pulses
+
+Timing      __/‾‾‾‾‾‾‾‾‾\________________\__________/‾‾‾‾‾‾‾‾\____
+   (.TT)         |<-- 20 s -->|                          10 s
+                 stops here, DN takes over            never reaches
+                                                        20 s preset
+
+Done        ______________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\____________________________
+   (.DN)         |<- 20 s ->|
+                 sets once accumulated                 never sets,
+                 reaches the 20 s preset                accumulated
+                                                         only reached 10 s
+```
+
+**Pulse 1, rung true for 40 seconds**
+
+- EN on for the full 40s, matches the rung
+- TT on for 20s, from the moment the rung goes true until accumulated reaches the 20s preset
+- DN sets exactly when TT drops, at the 20s mark, and holds for the remaining 20s while the rung is still true
+- Textbook behaviour, matches the 3 second example above exactly, just longer numbers
+
+**Pulse 2, rung true for only 10 seconds**
+
+- Timer is **non-retentive**, so when the rung dropped after pulse 1, the accumulated value reset to 0
+- Pulse 2 starts counting from 0 again, not picking up where pulse 1 left off
+- EN on for the full 10s, matches the rung, since EN only cares whether the rung is true
+- TT on for the full 10s too, since TT stays true whenever rung is true **and** accumulated is less than preset, and accumulated only reached 10, still short of the 20s preset
+- **DN never sets.** The rung dropped before the accumulator could reach 20s. Reaching only 10 out of the 20 needed is not enough, DN requires accumulated to be equal to or greater than preset, not "close to it"
+
+### The rule this proves
+> **DN only fires if the rung stays true long enough for the accumulator to actually reach the preset.** A pulse shorter than the preset produces a partial count that goes nowhere, EN and TT still behave exactly as their own rules say, but DN simply never has the chance to trigger.
+
 ### The practical pattern, worked with real addressing
 
 ```
@@ -1791,6 +1832,9 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **The three timer status bits**
 > EN, enabled, true whenever the rung condition is true, stays true even after the timer is done, resets only when the rung goes false. TT, timer timing, true only while actively counting toward preset, resets the instant done sets. DN, done, true when accumulated is equal to or greater than preset. TT and DN are never true at the same time. DN is the bit other rungs actually use, addressed as TimerName.DN and read with an XIC to trigger the next step.
+
+**What happens if the rung drops before the preset is reached**
+> A non-retentive timer resets its accumulated value to 0. If a later pulse is shorter than the preset, EN and TT still follow that pulse exactly as normal, but DN never sets, since accumulated never reached preset. DN needs the rung to stay true for at least the full preset duration.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
