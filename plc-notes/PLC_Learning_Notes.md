@@ -36,6 +36,7 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 10. [Ladder Logic Input Instructions](#10-ladder-logic-input-instructions)
 11. [Ladder Logic Output Instructions](#11-ladder-logic-output-instructions)
 12. [Worked Examples: Seal-In in Practice](#12-worked-examples-seal-in-in-practice)
+13. [Timers](#13-timers)
 
 **Appendix**
 
@@ -1366,6 +1367,45 @@ The Arduino based PLC module in my BSc final year project used exactly this patt
 ---
 ---
 
+## 13. Timers
+
+New topic. This section starts small and will grow as more timer slides come in.
+
+### Slide definition
+
+> **The timer base specifies at what rate the timer will increment.**
+
+### What that actually means
+
+- A timer counts up (or down) toward a target. The **timer base** is the size of each tick it counts in
+- Common timer bases: **1 ms, 10 ms, 100 ms, 1 second**
+- A smaller timer base gives finer resolution but the CPU has to service it more often. A larger timer base is coarser but cheaper to run
+- The timer base is a **setting on the timer instruction itself**, chosen when you configure it, not something fixed by the CPU
+
+### The three numbers every timer has
+
+Worth learning together, since the timer base is only one of three settings that define how a timer behaves.
+
+| Term | What it is |
+|---|---|
+| **Timer base** | The tick size. How fast the count increments, for example 100 ms per tick |
+| **Preset** | The target count. How many ticks must accumulate before the timer is "done" |
+| **Accumulator** | The current count. How many ticks have happened so far, right now |
+
+**Worked example.** Timer base 100 ms, preset 30. The timer reaches "done" after 30 ticks of 100 ms each, which is 3 seconds. Change the timer base to 1 second with the same preset of 30, and the same timer now takes 30 seconds. **The timer base and the preset together decide the real world delay**, neither one on its own tells you the answer.
+
+### Why the timer base matters practically
+
+- Choosing too fine a timer base, for example 1 ms, on a long delay wastes CPU resolution you do not need and can make the preset number awkwardly large
+- Choosing too coarse a timer base, for example 1 second, on something that needs sub-second accuracy makes the timer imprecise
+- Match the timer base to the actual delay you are building. Seconds-scale delays, like a conveyor pause, want a 100 ms or 1 s base. Fast pulse timing wants 1 ms or 10 ms
+
+### Relevant to me
+Timers are exactly the kind of instruction I will need for the Week 1 CODESYS exercises already planned, specifically the "lamp turns off 5 seconds after a button press" exercise. Getting timer base and preset right there is a direct rehearsal of this section.
+
+---
+---
+
 # Appendix A. MCQ Revision Bank
 
 Every course quiz question collected, grouped by topic. Answer in bold, with the reasoning underneath and the distractors explained where they are worth knowing.
@@ -1598,6 +1638,9 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **Seal-in or Latch/Unlatch, which do you default to**
 > Seal-in for anything physical, motors, valves, conveyors, since it resets to off on power loss with no extra design work. Latch/Unlatch for internal bookkeeping, mode bits, fault flags, sequence steps, where surviving a brief power loss is actually wanted. Never latch a safety critical output.
+
+**What is a timer base**
+> The tick size a timer counts in, for example 100 ms per tick. The timer base and the preset together decide the real delay, neither alone tells you the answer. A 30 preset at a 100 ms base is 3 seconds, the same preset at a 1 second base is 30 seconds.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
