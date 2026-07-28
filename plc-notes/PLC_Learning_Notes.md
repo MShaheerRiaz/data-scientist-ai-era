@@ -35,6 +35,7 @@ MSc Electrical and Electronics Engineering, Anglia Ruskin University
 
 10. [Ladder Logic Input Instructions](#10-ladder-logic-input-instructions)
 11. [Ladder Logic Output Instructions](#11-ladder-logic-output-instructions)
+12. [Worked Examples: Seal-In in Practice](#12-worked-examples-seal-in-in-practice)
 
 **Appendix**
 
@@ -1031,7 +1032,137 @@ This connects directly to the Triconex ladder logic I wrote at Fauji Fertilizer,
 
 ---
 
-## 11. Ladder Logic Output Instructions
+## 11a. Where a Trip Condition Belongs on a Rung
+
+The same seal-in shape keeps reappearing. This is the general rule behind it, ahead of the worked examples.
+
+**The three roles on a seal-in rung**
+
+- **Enable group**, leftmost. Start OR seal-in, merged into one path
+- **Trip condition**, middle. Sits after the merge, before the coil
+- **Coil**, rightmost. The output itself
+
+```
+  Enable group                Trip                Coil
+  (Start OR seal-in)      condition
+  ----| |----+----------|/|--------------------(   )----
+       |     |
+      seal-in|
+  ----| |----+
+```
+
+**Why the trip condition must sit after the merge, not inside a branch**
+
+- If it sat only inside the Start branch, it would block a fresh start but not break an already-running seal-in loop
+- If it sat only inside the seal-in branch, a plain Start press could re-energise straight around it
+- Sitting on the trunk, after both paths merge, means it can shut things down regardless of which path is currently carrying power
+- This is true whether the trip condition is a Stop button, a level sensor, a fault bit, or anything else that needs to override the hold
+
+**Enable vs trip, not left vs right**
+
+- Order along a straight series line does not change the logic, AND is commutative
+- What differs is the **role**: a permissive that gates whether Start even matters goes first, leftmost
+- A trip that must override an already-latched output goes after the merge, right before the coil
+- Same instruction types, XIC or XIO, completely different placement logic depending on the job
+
+---
+
+## 12. Worked Examples: Seal-In in Practice
+
+Two real style examples, each showing the same seal-in shape solving a different problem. Both use one physical sensor read two different ways in two different rungs, which is the section 10 lesson made concrete twice over.
+
+> **Note on both examples.** These are teaching diagrams, simplified for the concept being shown, not complete industrial practicals. Real circuits would add things like start up permissives, sensor fault handling and timers.
+
+---
+
+### 12.1 Filling and Mixing Station
+
+**The process:** press Start to fill a tank. When the level sensor trips, filling stops and mixing begins.
+
+**Rung 1, Filling valve**
+
+```
+    Start PB                                Level sensor          Filling valve
+  ----| |-----------+--------------------|/|------------------(   )----
+                     |                     XIO
+   Filling valve     |               "not full yet"
+  ----| |------------+
+     (seal-in)
+```
+
+**Rung 2, Mixer**
+
+```
+   Level sensor              Stop PB                Mixer
+  ----| |------------------|/|--------------------(   )----
+       XIC                   XIO
+   "now full"
+```
+
+**Point by point**
+
+- Start PB and the Filling valve seal-in are the **enable group**, merged before continuing right
+- The Level sensor sits **after** that merge, in the **trip** position, exactly as section 11a describes
+- On Rung 1 the Level sensor is read as **XIO**, true while the tank is not yet full. Once it trips, XIO goes false and breaks the filling rung
+- On Rung 2 the **same physical sensor** is read as **XIC**, true only once the tank is full, enabling the Mixer
+- One sensor, one memory bit, two opposite readings, two different rungs, on purpose
+- The Level sensor here is functioning exactly like a Stop button. It is a trip condition, not a start condition, which is why it sits where a Stop normally sits
+
+---
+
+### 12.2 Conveyor with Status Lights
+
+**The process:** Start and Stop run a conveyor. Two green lamps show running, one red lamp shows stopped.
+
+**Rung 1, Conveyor**
+
+```
+    Stop PB                            Start PB               Conveyor
+  ----|/|-----------+------------------| |------------------(   )----
+                     |                   XIC
+    Conveyor         |
+  ----| |------------+
+     (seal-in)
+```
+
+**Rung 2, Green lights**
+
+```
+    Conveyor                                    Green Light 1
+  ----| |------------------------------+-----------(   )----
+       XIC                             |
+                                        |          Green Light 2
+                                        +-----------(   )----
+```
+
+**Rung 3, Red light**
+
+```
+    Conveyor                            Stop red light
+  ----|/|-----------------------------------(   )----
+       XIO
+```
+
+**Point by point**
+
+- Same seal-in shape as every other example: enable group on the left, trip condition after the merge, coil on the right
+- Rung 2 reads the Conveyor bit as **XIC**. True while running, so both green lamps light together
+- Rung 3 reads the **same Conveyor bit** as **XIO**. True while stopped, so the red lamp lights only when the conveyor is off
+- Again, one internal bit, read two opposite ways, across two different rungs, driving opposite indicators
+- **A wiring nuance worth flagging.** In Rung 1, Stop PB is drawn as **XIO**. For that to work as a stop, Stop PB must be wired **normally open**, idle bit 0, XIO true, so pressing it drives the bit to 1 and breaks the rung
+- Section 11 taught the fail safe convention: wire Stop **normally closed** and read it with **XIC**, so a broken wire also stops the machine
+- This diagram's version still works as a stop function, but it does **not** get that wire break protection. Worth noticing the difference rather than assuming every diagram follows the safest convention
+
+---
+
+### The one lesson both examples are really teaching
+
+- **Position on the rung tells you the role.** Enable conditions sit left of the seal-in merge, trip conditions sit right of it, just before the coil
+- **The same physical input can be read two different ways in two different rungs.** XIC in one place, XIO in another, same bit, opposite meaning, entirely by choice
+- **Not every diagram uses the safest wiring convention.** Always check whether a Stop or trip condition is genuinely fail safe, normally closed with XIC, or just functionally working, normally open with XIO
+
+---
+---
 
 Output instructions sit at the **right hand end** of a rung. They are what the rung actually does when its conditions are satisfied.
 
@@ -1081,6 +1212,13 @@ Hold the switch, the lamp is on. Release it, the lamp goes off immediately.
 This is **double coil syndrome**. Because the CPU executes top to bottom and writes outputs at the end of the scan, only the **last** rung to touch that address decides the final state. Rung 5 is effectively ignored. It is legal, it does not error, and it silently breaks your program. Most engineering software will warn you, and you should treat the warning as an error.
 
 ---
+
+### Slide definitions, confirmed
+
+- **Latch instruction (L):** to latch an output ON, output stays ON until the unlatch instruction becomes true
+- **Unlatch instruction (U):** to unlatch a latch ON instruction with the same address
+
+This confirms the OTL and OTU behaviour already covered below. Same address, two instructions, opposite jobs.
 
 ### OTL and OTU, latch and unlatch
 
