@@ -744,6 +744,66 @@ There are two of them, and understanding the difference properly is the foundati
 
 The distinguishing mark is the **forward slash** through the XIO symbol. Slash means invert.
 
+---
+
+### How an input actually reaches the program
+
+This is the signal path from the real world into a rung. It explains **why** the instructions behave the way they do.
+
+```
+   Input X          <- the physical device, a real switch or sensor
+      |
+      v
+  PLC input module  <- converts the 24 V field signal into a logic bit
+      |
+      |  Store in memory
+      v
+  Input signal      <- the input image table. A snapshot of every input,
+    memory             taken at the start of the scan
+      |
+      |  Read X0 status from memory
+      v
+      X0
+  ----| |-------------------------------(  )----
+   the contact reads the BIT,           output
+   not the physical device
+```
+
+**Four stages, in order**
+
+| Stage | What happens |
+|---|---|
+| 1. Physical device | A switch closes or a sensor triggers out in the plant |
+| 2. PLC input module | Detects the 24 V signal, filters and isolates it, converts it to a 1 or 0 |
+| 3. Input signal memory | The bit is stored in the **input image table**, one address per channel, for example X0 |
+| 4. Ladder instruction | The contact in your program **reads that stored bit**, not the device itself |
+
+### The two things this diagram is really teaching
+
+**1. Your program never touches the field device.**
+The contact labelled X0 is not the switch. It is an instruction that reads **address X0 in memory**. Several rungs can examine the same X0, and each one reads the same stored bit. That is why you can use one physical input as a condition in as many rungs as you like.
+
+**2. It is a snapshot, not a live feed.**
+Memory is written **once at the start of each scan**, during the read inputs step from section 4. If the physical switch changes state halfway through the program execution, the program does not see it until the next scan. This is the mechanism behind the one scan delay.
+
+Put the two together and the earlier trap becomes obvious. **XIC asks "is the stored bit 1", not "is the switch physically closed".** The diagram shows exactly where that separation happens, at the "store in memory" step.
+
+### On the addressing, X0
+
+`X0` is generic and Mitsubishi style notation. Vendors differ:
+
+| Vendor | Input address format | Example |
+|---|---|---|
+| Generic / Mitsubishi | X followed by a number | `X0` |
+| **Siemens** | `%I` byte.bit | `%I0.0` |
+| Allen-Bradley | Tag or module path | `Local:1:I.Data.0` |
+
+Outputs follow the same pattern: `Y0` generic, `%Q0.0` on Siemens, and a tag on Allen-Bradley.
+
+**For my Siemens path,** `%I0.0` is the first digital input and `%Q0.0` is the first digital output. Getting comfortable with the byte.bit notation early is worth doing, because it is the one piece of syntax that looks unfamiliar coming from generic tutorials.
+
+---
+
 ### The trap that catches everyone
 
 **XIC and XIO describe what the instruction examines in memory, not the physical state of the field device.**
@@ -1037,6 +1097,12 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **XIC vs XIO**
 > XIC, examine if closed, passes power when the bit is 1. XIO, examine if open, passes power when the bit is 0. The slash means not. They examine the bit in memory, not the physical state of the field device.
+
+**How does a field signal reach a rung**
+> Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
+
+**Siemens addressing**
+> %I0.0 is the first digital input, %Q0.0 the first digital output. Byte dot bit notation.
 
 **Why is a stop button programmed with an XIC when it is a normally closed device**
 > Because it is wired normally closed, its input bit reads 1 while nobody is pressing it. Pressing it drops the bit to 0 and breaks the rung. Wiring it normally closed means a broken wire also stops the machine, so failure lands in the safe state.
