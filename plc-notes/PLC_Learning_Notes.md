@@ -722,6 +722,41 @@ Input instructions are the **conditions** on a rung. They sit on the left and de
 
 There are two of them, and understanding the difference properly is the foundation of everything that follows.
 
+### First, the vocabulary
+
+The word "input" is used for two completely different things, and keeping them apart prevents most beginner confusion.
+
+```
+  Physical input devices          Inputs within PLC programming
+            |                                  |
+            v                                  v
+  Field input devices                   Input instructions
+       (contacts)                        (XIC and XIO)
+
+  Real hardware in the plant       Symbols in your program
+  A switch you can touch           An instruction reading a bit
+```
+
+| | Field input device | Input instruction |
+|---|---|---|
+| What it is | Real hardware out in the plant | A symbol in the ladder program |
+| Also called | Field contact | XIC or XIO |
+| Examples | Push button, limit switch, proximity sensor, pressure switch | `----\| \|----` and `----\|/\|----` |
+| Described as | Normally open or normally closed, by how it is **wired** | Examine if closed or examine if open, by which **bit value** makes it true |
+| Where it lives | The device level | The program, inside the CPU |
+| Can you touch it | Yes | No |
+
+**Why this distinction is the whole point**
+
+Both get called "normally open" and "normally closed" in casual conversation, which is exactly what causes the confusion.
+
+- A **field device** is normally open or normally closed by its **physical construction and wiring**. That is a hardware fact, decided by the electrician and the drawing.
+- An **input instruction** is XIC or XIO by which **bit value makes it true**. That is a software choice, decided by you when writing the program.
+
+**They are chosen independently.** A normally closed stop button in the field is programmed with an XIC. Assuming the two must match is the single most common beginner error in ladder logic.
+
+The signal path diagram later in this section shows exactly where the two worlds separate, at the point where the input module writes the bit into memory.
+
 ### The two symbols
 
 ```
