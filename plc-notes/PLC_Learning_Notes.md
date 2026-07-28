@@ -737,6 +737,28 @@ The word "input" is used for two completely different things, and keeping them a
   A switch you can touch           An instruction reading a bit
 ```
 
+**The two families of terms, side by side**
+
+```
+     Field device / relay                  Program instructions
+      (the HARDWARE)                        (the SOFTWARE)
+        /          \                          /          \
+       v            v                        v            v
+  +-----------+ +-------------+       +-------------+ +-------------+
+  | Normally  | | Normally    |       | Examine if  | | Examine if  |
+  |   open    | |   closed    |       |  open (XIO) | | closed (XIC)|
+  |   (NO)    | |    (NC)     |       |             | |             |
+  +-----------+ +-------------+       +-------------+ +-------------+
+
+  Decided by wiring and the           Decided by you, when writing
+  electrical drawing                  the program
+
+  Describes the contact's             Describes which BIT VALUE
+  resting physical state              makes the instruction true
+```
+
+**NO and NC belong to hardware. XIO and XIC belong to software.** Never use the pairs interchangeably, and never assume a field device's type dictates the instruction you write.
+
 | | Field input device | Input instruction |
 |---|---|---|
 | What it is | Real hardware out in the plant | A symbol in the ladder program |
