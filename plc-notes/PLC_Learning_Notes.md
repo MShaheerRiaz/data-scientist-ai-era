@@ -746,6 +746,45 @@ The distinguishing mark is the **forward slash** through the XIO symbol. Slash m
 
 ---
 
+### Quick reference, the whole thing on one screen
+
+**XIC, Examine if Closed** `----| |----`
+
+```
+   bit = 0                        bit = 1
+  ----| |----                    ==| |==     <- power flows
+    FALSE                          TRUE
+```
+> **XIC is TRUE when the bit is 1.**
+> Think of it as a normal switch. Turn it on, power passes.
+
+**XIO, Examine if Open** `----|/|----`
+
+```
+   bit = 0                        bit = 1
+  ==|/|==   <- power flows       ----|/|----
+    TRUE                           FALSE
+```
+> **XIO is TRUE when the bit is 0.**
+> The slash inverts it. Turn the bit on and it blocks.
+
+### The truth table
+
+| Bit value | XIC `----| |----` | XIO `----|/|----` |
+|:---:|:---:|:---:|
+| **0** (OFF) | **FALSE**, blocks | **TRUE**, passes ✅ |
+| **1** (ON) | **TRUE**, passes ✅ | **FALSE**, blocks |
+
+**They are exact opposites.** For any given bit, one passes and the other blocks. Always.
+
+### Three ways to remember it
+
+1. **The slash means NOT.** XIC is "bit", XIO is "not bit"
+2. **XIC matches intuition, XIO reverses it.** XIC on when on, XIO on when off
+3. **The letter tells you the true state.** XI**C**losed wants the bit **C**losed, meaning 1. XI**O**pen wants the bit **O**pen, meaning 0
+
+---
+
 ### How an input actually reaches the program
 
 This is the signal path from the real world into a rung. It explains **why** the instructions behave the way they do.
@@ -1096,7 +1135,7 @@ Worth memorising as a set, since the quiz tests them against each other.
 > PLC is for fast complex control logic on site. RTU is for wide area telemetry at genuinely remote locations, often low power and on radio or cellular. The distinction is fading, but the term still appears in water and utilities job adverts.
 
 **XIC vs XIO**
-> XIC, examine if closed, passes power when the bit is 1. XIO, examine if open, passes power when the bit is 0. The slash means not. They examine the bit in memory, not the physical state of the field device.
+> XIC `----| |----` is TRUE when the bit is **1**. XIO `----|/|----` is TRUE when the bit is **0**. Exact opposites. The slash means not. Both examine the bit in memory, not the physical state of the field device.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
