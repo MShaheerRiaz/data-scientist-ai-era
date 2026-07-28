@@ -1455,6 +1455,16 @@ The four fields, timer name, timer base, preset, accumulated value, describe **h
 | Bit | Name | True when |
 |---|---|---|
 | **.EN** | Enable | The timer rung condition is true. The timer is switched on, whether or not it is actively counting |
+
+**Slide definitions, exact wording**
+
+> Enable bit is true when the rung input logic is true, **even after the timer is done timing**.
+> As long as there is **continuity** through all input instructions to the timer instruction, the timer enable bit will be true.
+> The enable bit is reset when the rung goes to **false**.
+
+**"Continuity"** is the classic ladder logic term for power flow reaching the instruction, the same idea used throughout this course for whether a rung passes power left to right.
+
+**The bolded phrase, "even after the timer is done timing", is the point that distinguishes EN from TT.** EN does not reset when DN sets, only TT does. EN keeps tracking the rung condition alone, so it stays true for as long as the rung stays true, done or not.
 | **.TT** | Timer Timing | The timer is **actively counting**. True only between being enabled and reaching preset |
 
 **Slide definitions, exact wording, three versions of the same rule**
@@ -1780,7 +1790,7 @@ Worth memorising as a set, since the quiz tests them against each other.
 > The tick size a timer counts in, for example 0.001 s. Time delay = preset value times time base. A preset of 3,000 at a 0.001 s base gives 3 seconds. Same preset, different base, different real world delay.
 
 **The three timer status bits**
-> EN, enabled, true whenever the rung condition is true. TT, timer timing, true only while actively counting toward preset. DN, done, true when accumulated is equal to or greater than preset. TT and DN are never true at the same time. DN is the bit other rungs actually use, addressed as TimerName.DN and read with an XIC to trigger the next step.
+> EN, enabled, true whenever the rung condition is true, stays true even after the timer is done, resets only when the rung goes false. TT, timer timing, true only while actively counting toward preset, resets the instant done sets. DN, done, true when accumulated is equal to or greater than preset. TT and DN are never true at the same time. DN is the bit other rungs actually use, addressed as TimerName.DN and read with an XIC to trigger the next step.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
