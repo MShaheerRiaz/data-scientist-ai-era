@@ -1458,6 +1458,12 @@ The four fields, timer name, timer base, preset, accumulated value, describe **h
 | **.TT** | Timer Timing | The timer is **actively counting**. True only between being enabled and reaching preset |
 | **.DN** | Done | Accumulated value has **reached** preset. Stays true while the rung stays enabled |
 
+**Slide definition, exact wording**
+
+> **Done (.DN)** is true when the accumulator value is **equal to or greater than** the preset value.
+
+The **"or greater than"** matters. DN does not require an exact match to the preset, it just requires the count to have reached or passed it. In normal operation accumulated value stops exactly at preset, since the timer stops counting once done, so this only becomes visible with unusual timer types or manual manipulation of the accumulator.
+
 ### Why three separate bits, not just one
 
 Each answers a different question, and other rungs need to ask different questions.
@@ -1482,14 +1488,25 @@ Rung condition (the input enabling the timer) goes true at t = 0, timer reaches 
 
 **Read down the .TT column and the .DN column together.** They are never both 1 at the same time. TT is true only *while counting toward* the preset. DN is true only *once it has reached* the preset. One switches off exactly when the other switches on.
 
-### The practical pattern
+### The practical pattern, worked with real addressing
 
 ```
-   .DN                              Next step
-  ----| |---------------------------(   )----
+                +--------------------------+
+                |          Timer           |
+                |---------------------------
+                |  Timer name    Timer 1   |
+                |  Timer base              |
+                |  Preset                  |
+                |  Accumulated value       |
+                +--------------------------+
+
+   Timer1.DN                                       Fan
+  ----| |---------------------------------------(   )----
 ```
 
-- Once a timer's **.DN** bit goes true, that is what the following rung examines with an **XIC** to trigger the next action
+- The status bit is addressed as **`TimerName.DN`**, here **`Timer1.DN`**, since the timer is named Timer 1
+- A separate rung reads `Timer1.DN` with a plain **XIC**, exactly like any other input contact
+- Once Timer 1 reaches its preset, `Timer1.DN` goes true, and this rung energises the Fan
 - This is exactly how sequences are built. Timer 1 done triggers step 2, which starts Timer 2, whose done bit triggers step 3, and so on
 - **.EN** is mostly used for diagnostics and interlocking, confirming a timer has genuinely been called
 - **.TT** is mostly used to drive a "timing in progress" lamp or an HMI indicator, since it is true for exactly the duration the delay is running
@@ -1749,7 +1766,7 @@ Worth memorising as a set, since the quiz tests them against each other.
 > The tick size a timer counts in, for example 0.001 s. Time delay = preset value times time base. A preset of 3,000 at a 0.001 s base gives 3 seconds. Same preset, different base, different real world delay.
 
 **The three timer status bits**
-> EN, enabled, true whenever the rung condition is true. TT, timer timing, true only while actively counting toward preset. DN, done, true once accumulated reaches preset. TT and DN are never true at the same time. DN is the bit other rungs actually use, read with an XIC to trigger the next step.
+> EN, enabled, true whenever the rung condition is true. TT, timer timing, true only while actively counting toward preset. DN, done, true when accumulated is equal to or greater than preset. TT and DN are never true at the same time. DN is the bit other rungs actually use, addressed as TimerName.DN and read with an XIC to trigger the next step.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
