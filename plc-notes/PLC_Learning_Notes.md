@@ -1331,6 +1331,35 @@ Siemens also offers **SR** (set dominant) and **RS** (reset dominant) blocks, wh
 > OTE forgets. OTL and OTU remember.
 > If you latch it, you must plan how to unlatch it.
 
+---
+
+### Seal-in vs Latch/Unlatch, head to head
+
+Both hold an output on after the triggering condition disappears. The difference is what happens when power is lost, and that difference decides which one you should reach for.
+
+| | **Seal-in** (OTE + feedback contact) | **Latch / Unlatch** (OTL + OTU) |
+|---|---|---|
+| Built from | Plain OTE, held on by its own contact | Two dedicated instructions, same address |
+| Retentive | **No** | **Yes** |
+| State after power loss | **Resets to 0.** Starts de-energised on power up | **Remembers.** Resumes whatever it was before the loss |
+| Rungs needed | One rung | Two rungs, can be anywhere in the program |
+| Pairing enforced by | Physical rung structure, self-documenting | Shared **address** only, easy to lose track of |
+| Typical use | Motor start and stop, anything that drives real motion | Status flags, mode bits, alarm acknowledgement, step sequencing |
+| Main risk | None specific, this is the default safe choice | Unlatched output can be forgotten, or self restart after power loss if misused |
+| Fail safe by default | **Yes** | **No**, needs deliberate design |
+
+### Which one to actually use
+
+- **Default to seal-in for anything that moves or drives energy into the plant.** Motors, valves, conveyors, actuators. If power drops, you want it to come back off, and seal-in gives you that for free
+- **Reach for Latch/Unlatch for internal bookkeeping, not physical motion.** A "batch in progress" flag, a "fault has been acknowledged" bit, tracking which step of a sequence you are on. These are things you often genuinely want to survive a short power blip, since re-running a whole sequence from step one after a two second outage is wasteful
+- **Never latch a safety critical output.** E-stops, interlocks, guarding. That was covered above, worth repeating here since this is the comparison where the mistake actually gets made
+- **If you do use Latch/Unlatch, document it.** Since the pair can be anywhere in the program, leave a comment on each instruction pointing at its partner's rung number. Future you, or the next engineer, will not enjoy hunting for it
+
+### One line each
+
+> **Seal-in**: safe by construction, resets on power loss, use for physical outputs.
+> **Latch/Unlatch**: remembers deliberately, needs upfront design, use for internal state.
+
 ### Relevant to me
 The Arduino based PLC module in my BSc final year project used exactly this pattern. Motor start and stop with a holding condition is the same seal-in logic, implemented in code rather than in ladder. And the safety reasoning here, that a latched output can restart itself after a power cut, is the same fail safe thinking behind normally closed stop buttons and live zero on a 4 to 20 mA loop.
 
@@ -1566,6 +1595,9 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **How are OTL and OTU linked if not by position**
 > By address, not by location. They are always used in pairs and must share the same reference address, but they do not have to be grouped together in the program. To find what can turn a latched output off, search the whole program for that address, not just nearby rungs.
+
+**Seal-in or Latch/Unlatch, which do you default to**
+> Seal-in for anything physical, motors, valves, conveyors, since it resets to off on power loss with no extra design work. Latch/Unlatch for internal bookkeeping, mode bits, fault flags, sequence steps, where surviving a brief power loss is actually wanted. Never latch a safety critical output.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
