@@ -1224,6 +1224,18 @@ This confirms the OTL and OTU behaviour already covered below. Same address, two
 
 These are **retentive**. They change the bit and then leave it, regardless of what the rung does afterwards.
 
+**Simplest possible example, one rung**
+
+```
+   Pushbutton                Motor
+  ----| |------------------( L )----
+```
+
+- Slide caption: **a latching instruction is used to keep the output ON**
+- Tap the pushbutton for a moment, release it, the Motor bit stays 1
+- Nothing in this single rung can turn it back off, that is the point being illustrated and also the danger
+- This rung on its own is **incomplete**. It needs a matching OTU rung somewhere else in the program, or the output can never be switched off by the logic at all
+
 ```
     Start            Motor
   ----| |---------( L )----      <- press once, motor stays on
