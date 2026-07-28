@@ -1433,8 +1433,81 @@ Change the timer base to 1 second with the same preset of 30, and the same timer
 - Choosing too coarse a timer base, for example 1 second, on something that needs sub-second accuracy makes the timer imprecise
 - Match the timer base to the actual delay you are building. Seconds-scale delays, like a conveyor pause, want a 100 ms or 1 s base. Fast pulse timing wants 1 ms or 10 ms
 
+---
+
+### Timer Instructions Status Bits
+
+The four fields, timer name, timer base, preset, accumulated value, describe **how** the timer counts. They do not tell other rungs **what state** the timer is in. That is what the status bits are for.
+
+```
++------------------------------+          Status bits
+|            Timer             |         (read by other rungs)
+|-------------------------------
+|  Timer name        _______   |         Done          (.DN)
+|  Timer base         0.001    |         Timer timing   (.TT)
+|  Preset              3,000   |         Enable         (.EN)
+|  Accumulated value    ___    |
++-------------------------------+
+```
+
+**The three bits**
+
+| Bit | Name | True when |
+|---|---|---|
+| **.EN** | Enable | The timer rung condition is true. The timer is switched on, whether or not it is actively counting |
+| **.TT** | Timer Timing | The timer is **actively counting**. True only between being enabled and reaching preset |
+| **.DN** | Done | Accumulated value has **reached** preset. Stays true while the rung stays enabled |
+
+### Why three separate bits, not just one
+
+Each answers a different question, and other rungs need to ask different questions.
+
+- **.EN** answers *"has this timer been triggered at all?"*
+- **.TT** answers *"is it still counting right now?"*
+- **.DN** answers *"has the full delay elapsed?"*
+
+Almost always, **.DN is the one you actually use** to drive the rest of the program. It is the timer's real output, a plain boolean bit that other rungs read with an XIC, exactly like any other input.
+
+### Worked timeline, a 3 second TON timer
+
+Rung condition (the input enabling the timer) goes true at t = 0, timer reaches done at t = 3s, rung condition drops at t = 5s.
+
+| Time | Rung condition | .EN | .TT | .DN | Accumulated |
+|---|:---:|:---:|:---:|:---:|---|
+| t = 0s, just enabled | TRUE | **1** | **1** | 0 | 0, counting starts |
+| t = 1.5s, still counting | TRUE | 1 | 1 | 0 | 1,500 |
+| t = 3s, preset reached | TRUE | 1 | **0** | **1** | 3,000, holds |
+| t = 4s, still enabled | TRUE | 1 | 0 | 1 | 3,000, holds |
+| t = 5s, rung drops | **FALSE** | **0** | 0 | **0** | resets to 0 |
+
+**Read down the .TT column and the .DN column together.** They are never both 1 at the same time. TT is true only *while counting toward* the preset. DN is true only *once it has reached* the preset. One switches off exactly when the other switches on.
+
+### The practical pattern
+
+```
+   .DN                              Next step
+  ----| |---------------------------(   )----
+```
+
+- Once a timer's **.DN** bit goes true, that is what the following rung examines with an **XIC** to trigger the next action
+- This is exactly how sequences are built. Timer 1 done triggers step 2, which starts Timer 2, whose done bit triggers step 3, and so on
+- **.EN** is mostly used for diagnostics and interlocking, confirming a timer has genuinely been called
+- **.TT** is mostly used to drive a "timing in progress" lamp or an HMI indicator, since it is true for exactly the duration the delay is running
+
+### Siemens equivalent, approximate
+
+Siemens instruction sets do not expose an identical three bit structure, so this is a mapping of concept, not a literal one to one.
+
+| Allen-Bradley | Rough Siemens equivalent |
+|---|---|
+| .DN | **Q** output of the timer block |
+| .TT | Derived, IN true and Q not yet true |
+| .EN | The rung condition feeding the timer's IN input directly |
+
+**The takeaway that transfers regardless of vendor:** every timer needs a way to ask "has it finished", and that is the bit worth building your program logic around.
+
 ### Relevant to me
-Timers are exactly the kind of instruction I will need for the Week 1 CODESYS exercises already planned, specifically the "lamp turns off 5 seconds after a button press" exercise. Getting timer base and preset right there is a direct rehearsal of this section.
+Timers are exactly the kind of instruction I will need for the Week 1 CODESYS exercises already planned, specifically the "lamp turns off 5 seconds after a button press" exercise. Getting timer base and preset right there is a direct rehearsal of this section, and the .DN bit is what will actually switch the lamp off in that exercise.
 
 ---
 ---
@@ -1674,6 +1747,9 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **What is a timer base, and the formula**
 > The tick size a timer counts in, for example 0.001 s. Time delay = preset value times time base. A preset of 3,000 at a 0.001 s base gives 3 seconds. Same preset, different base, different real world delay.
+
+**The three timer status bits**
+> EN, enabled, true whenever the rung condition is true. TT, timer timing, true only while actively counting toward preset. DN, done, true once accumulated reaches preset. TT and DN are never true at the same time. DN is the bit other rungs actually use, read with an XIC to trigger the next step.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
