@@ -1371,9 +1371,12 @@ The Arduino based PLC module in my BSc final year project used exactly this patt
 
 New topic. This section starts small and will grow as more timer slides come in.
 
-### Slide definition
+### Slide definitions, the two paired directly
 
-> **The timer base specifies at what rate the timer will increment.**
+> **Preset value** is the length of time for which the timer is to run.
+> **Time base** specifies at what rate the timer will increment.
+
+The course deliberately pairs these two definitions. **Preset answers "how long". Timer base answers "how fast the counting happens".** Neither one is the delay by itself, the delay only comes from combining them, which is exactly the formula below.
 
 ### What that actually means
 
@@ -1382,17 +1385,47 @@ New topic. This section starts small and will grow as more timer slides come in.
 - A smaller timer base gives finer resolution but the CPU has to service it more often. A larger timer base is coarser but cheaper to run
 - The timer base is a **setting on the timer instruction itself**, chosen when you configure it, not something fixed by the CPU
 
-### The three numbers every timer has
+### The timer block, as configured on screen
 
-Worth learning together, since the timer base is only one of three settings that define how a timer behaves.
+```
++------------------------------+
+|            Timer             |
+|-------------------------------
+|  Timer name        _______   |
+|  Timer base         0.001    |   <- seconds per tick, so 1 ms
+|  Preset              3,000   |   <- number of ticks
+|  Accumulated value    ___    |   <- ticks counted so far, live
++-------------------------------+
+```
+
+### The four settings every timer has
+
+Worth learning together, since the timer base is only one of four settings that define how a timer behaves.
 
 | Term | What it is |
 |---|---|
-| **Timer base** | The tick size. How fast the count increments, for example 100 ms per tick |
+| **Timer name** | The tag or identifier for this specific timer instance |
+| **Timer base** | The tick size. How fast the count increments, for example 0.001 s, meaning 1 ms per tick |
 | **Preset** | The target count. How many ticks must accumulate before the timer is "done" |
-| **Accumulator** | The current count. How many ticks have happened so far, right now |
+| **Accumulated value** | The current count. How many ticks have happened so far, right now, changes live while timing |
 
-**Worked example.** Timer base 100 ms, preset 30. The timer reaches "done" after 30 ticks of 100 ms each, which is 3 seconds. Change the timer base to 1 second with the same preset of 30, and the same timer now takes 30 seconds. **The timer base and the preset together decide the real world delay**, neither one on its own tells you the answer.
+### The formula
+
+> **Time delay = Preset value × Time base**
+
+**Worked example, straight from the slide.** Timer base 0.001 (1 ms), preset 3,000.
+
+```
+Time delay = 3,000 × 0.001 s = 3 seconds
+```
+
+**Second worked example**, same preset, different base, to show why both numbers matter. Timer base 100 ms, preset 30.
+
+```
+Time delay = 30 × 0.1 s = 3 seconds
+```
+
+Change the timer base to 1 second with the same preset of 30, and the same timer now takes 30 seconds instead of 3. **Neither number on its own tells you the delay, only the product does.**
 
 ### Why the timer base matters practically
 
@@ -1639,8 +1672,8 @@ Worth memorising as a set, since the quiz tests them against each other.
 **Seal-in or Latch/Unlatch, which do you default to**
 > Seal-in for anything physical, motors, valves, conveyors, since it resets to off on power loss with no extra design work. Latch/Unlatch for internal bookkeeping, mode bits, fault flags, sequence steps, where surviving a brief power loss is actually wanted. Never latch a safety critical output.
 
-**What is a timer base**
-> The tick size a timer counts in, for example 100 ms per tick. The timer base and the preset together decide the real delay, neither alone tells you the answer. A 30 preset at a 100 ms base is 3 seconds, the same preset at a 1 second base is 30 seconds.
+**What is a timer base, and the formula**
+> The tick size a timer counts in, for example 0.001 s. Time delay = preset value times time base. A preset of 3,000 at a 0.001 s base gives 3 seconds. Same preset, different base, different real world delay.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
