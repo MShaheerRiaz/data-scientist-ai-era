@@ -1553,6 +1553,68 @@ Done        ______________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\_______
 ### The rule this proves
 > **DN only fires if the rung stays true long enough for the accumulator to actually reach the preset.** A pulse shorter than the preset produces a partial count that goes nowhere, EN and TT still behave exactly as their own rules say, but DN simply never has the chance to trigger.
 
+---
+
+### TOF, the Timer Off Delay
+
+Everything above this line was **TON**, Timer On Delay. This is a different instruction, **TOF**, and it behaves close to the opposite way. Worth being very clear this is a distinct timer type, not another TON example.
+
+```
+Rung        ________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\_________________________
+
+Enable      ________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\_________________________
+  (.EN)              matches the rung exactly, same as TON
+
+Timing      ____________________________/‾‾‾‾‾‾‾‾‾‾‾‾‾\_________
+  (.TT)                                  |<-- preset -->|
+                              starts only once the rung DROPS,
+                              not when it rises
+
+Done        ________/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\_________
+  (.DN)              |                                  |
+                  rises WITH the rung,               falls once the
+                  immediately, no delay               off-delay preset
+                                                       has elapsed
+```
+
+**What is happening, in order**
+
+- Rung goes true. **.DN sets immediately**, no delay at all on this edge
+- Rung stays true. .EN and .DN both stay high. .TT stays low, nothing is counting yet
+- **Rung drops.** This is the moment the timer actually starts counting. .TT goes high, .DN stays high
+- The preset elapses. .TT drops, and **only now does .DN finally drop too**
+
+**Why it is called an off-delay timer:** the output does not respond immediately when the rung turns off. It stays on for an extra preset duration before switching off. The delay happens on the **off** transition, not the on transition.
+
+### TON vs TOF, side by side
+
+| | **TON**, on-delay | **TOF**, off-delay |
+|---|---|---|
+| Full name | Timer On Delay | Timer Off Delay |
+| DN on rung rising edge | **Delayed**, waits for preset | **Immediate** |
+| DN on rung falling edge | **Immediate** | **Delayed**, waits for preset |
+| TT counts during | the rung being **true**, before preset | the rung being **false**, before preset |
+| Everything covered earlier in this section | This is what all of it described | New, from this slide onward |
+| Typical use | Delay before **starting** something | Delay before **stopping** something |
+
+**One line to hold onto:** TON delays the ON, TOF delays the OFF. The name tells you which edge gets the wait.
+
+### The real world reason TOF exists
+
+The textbook example, and a genuinely common one in process plant motors:
+
+- A motor drives a fan, pump or compressor that runs hot
+- Stop the motor, and residual heat is still there
+- A **cooling fan** is wired through a TOF timer on the same Stop signal
+- The fan turns on **immediately** with the motor, same as any normal output
+- When the motor stops, the fan does **not** stop immediately, it keeps running for the TOF preset, a few minutes, to clear the residual heat
+- Only once that off-delay elapses does the fan finally switch off
+
+This is exactly the shape in the diagram. Fan on immediately, fan stays on past the point the motor stopped, fan off only after the delay.
+
+### Relevant to me
+This is directly the kind of protection logic behind motor cooling and safe shutdown sequencing at a plant like Fauji Fertilizer, where equipment does not simply stop the instant a Stop button is pressed. Recognising TOF as the instruction behind "runs on a bit after stopping" is a genuinely useful, specific thing to be able to say in an interview.
+
 ### The practical pattern, worked with real addressing
 
 ```
@@ -1835,6 +1897,9 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **What happens if the rung drops before the preset is reached**
 > A non-retentive timer resets its accumulated value to 0. If a later pulse is shorter than the preset, EN and TT still follow that pulse exactly as normal, but DN never sets, since accumulated never reached preset. DN needs the rung to stay true for at least the full preset duration.
+
+**TON vs TOF**
+> TON, timer on delay, delays switching ON, DN waits for the preset after the rung goes true but drops immediately when the rung drops. TOF, timer off delay, is the opposite, DN sets immediately when the rung goes true but waits for the preset after the rung drops before switching off. Classic TOF use case, a motor cooling fan that keeps running for a preset time after the motor stops.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
