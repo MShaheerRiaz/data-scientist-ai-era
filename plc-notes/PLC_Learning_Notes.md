@@ -1236,6 +1236,35 @@ These are **retentive**. They change the bit and then leave it, regardless of wh
 - Nothing in this single rung can turn it back off, that is the point being illustrated and also the danger
 - This rung on its own is **incomplete**. It needs a matching OTU rung somewhere else in the program, or the output can never be switched off by the logic at all
 
+**The three slide rules that complete the picture**
+
+- **Rule 1.** Latch and unlatch instructions are always used **in pairs**
+- **Rule 2.** Latch and unlatch instructions must have the **same reference address**
+- **Rule 3.** Latch and unlatch instructions **do not have to be grouped together** in the ladder logic
+
+**Rule 3 is the one worth sitting with.** OTL and OTU do not need to sit on adjacent rungs, or even nearby. They can be rungs apart, in different parts of the program, triggered by completely different conditions, so long as the **address matches**.
+
+**The canonical two-rung example**
+
+```
+   Pushbutton 1                    Motor
+  ----| |-------------------------( L )----          rung 1
+
+   Pushbutton 2                    Motor
+  ----| |-------------------------( U )----          rung 2
+```
+
+- **Rung 1**, Pushbutton 1, sets the Motor bit to 1 and holds it, regardless of where in the program rung 2 sits
+- **Rung 2**, a completely separate condition, Pushbutton 2, resets the same Motor bit to 0
+- Two different buttons, two different rungs, one shared address, that address is what links them, not their position in the program
+- This is functionally identical to the Start and Stop seal-in pattern from section 11a, except the pairing is done through a shared **address** rather than through a **wired seal-in contact**
+
+**Why this matters when reading someone else's program**
+
+- You cannot assume an OTL and its matching OTU are near each other
+- To find out what can turn a latched output off, **search the whole program for every instruction using that address**, not just the rungs around the one you are looking at
+- This is a genuine debugging habit, not just a theory point. Missing a distant OTU is exactly how engineers get caught out by "the motor never switches off"
+
 ```
     Start            Motor
   ----| |---------( L )----      <- press once, motor stays on
@@ -1534,6 +1563,9 @@ Worth memorising as a set, since the quiz tests them against each other.
 
 **What is a seal-in rung**
 > Start in parallel with a contact of the output itself, in series with a normally closed stop. The output's own contact holds the rung true after the start button is released. The most important pattern in industrial ladder logic.
+
+**How are OTL and OTU linked if not by position**
+> By address, not by location. They are always used in pairs and must share the same reference address, but they do not have to be grouped together in the program. To find what can turn a latched output off, search the whole program for that address, not just nearby rungs.
 
 **How does a field signal reach a rung**
 > Physical device, then input module which converts it to a logic bit, then input signal memory which stores it in the input image table, then the ladder instruction reads that stored bit. The program reads memory, never the device.
