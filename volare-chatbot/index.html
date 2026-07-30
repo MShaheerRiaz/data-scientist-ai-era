@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Volare chat widget — status</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 56px 24px 140px;
+        line-height: 1.6;
+        color: #111827;
+        background: #fff;
+      }
+      h1 { font-size: 24px; margin: 0 0 6px; }
+      .sub { color: #6b7280; margin: 0 0 32px; font-size: 15px; }
+      .check {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 14px 16px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        font-size: 14px;
+      }
+      .dot {
+        width: 10px; height: 10px; border-radius: 50%;
+        background: #d1d5db; flex-shrink: 0; margin-top: 7px;
+      }
+      .check.ok    { border-color: #bbf7d0; background: #f0fdf4; }
+      .check.ok    .dot { background: #16a34a; }
+      .check.bad   { border-color: #fecaca; background: #fef2f2; }
+      .check.bad   .dot { background: #dc2626; }
+      .check .label { font-weight: 600; }
+      .check .detail { color: #4b5563; font-size: 13px; margin-top: 2px; word-break: break-word; }
+      code {
+        background: #f3f4f6; padding: 2px 6px; border-radius: 4px;
+        font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .note { margin-top: 28px; font-size: 14px; color: #4b5563; }
+      .snippet {
+        margin-top: 10px; background: #111827; color: #e5e7eb; padding: 14px 16px;
+        border-radius: 10px; font-size: 12.5px; overflow-x: auto; white-space: pre;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0b0f17; color: #e5e7eb; }
+        .check { border-color: #1f2937; }
+        .check.ok  { background: #052e16; border-color: #166534; }
+        .check.bad { background: #2a0e0e; border-color: #991b1b; }
+        .check .detail, .sub, .note { color: #9ca3af; }
+        code { background: #1f2937; }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Volare chat widget</h1>
+    <p class="sub">Deployment status. If all three are green, the widget is ready to embed.</p>
+
+    <div class="check" id="c-static">
+      <div class="dot"></div>
+      <div><div class="label">Static files</div><div class="detail">Checking…</div></div>
+    </div>
+    <div class="check" id="c-widget">
+      <div class="dot"></div>
+      <div><div class="label">widget.js</div><div class="detail">Checking…</div></div>
+    </div>
+    <div class="check" id="c-api">
+      <div class="dot"></div>
+      <div><div class="label">/api/chat</div><div class="detail">Checking…</div></div>
+    </div>
+
+    <p class="note">
+      Once all three pass, paste this into Framer → Project Settings → General →
+      Custom Code → <strong>End of &lt;body&gt; tag</strong>:
+    </p>
+    <div class="snippet" id="snippet"></div>
+
+    <script>
+      var set = function (id, ok, detail) {
+        var el = document.getElementById(id);
+        el.className = 'check ' + (ok ? 'ok' : 'bad');
+        el.querySelector('.detail').textContent = detail;
+      };
+
+      // 1. This page rendered, so static serving works.
+      set('c-static', true, 'Serving from the volare-chatbot root directory.');
+
+      var origin = location.origin;
+      document.getElementById('snippet').textContent =
+        '<script\n' +
+        '  src="' + origin + '/widget.js"\n' +
+        '  data-api="' + origin + '/api/chat"\n' +
+        '  data-accent="#111827"\n' +
+        '  data-title="Volare AI"\n' +
+        '  defer\n' +
+        '><\/script>';
+
+      // 2. Does widget.js load and initialise?
+      var s = document.createElement('script');
+      s.src = '/widget.js';
+      s.defer = true;
+      s.dataset.api = '/api/chat';
+      s.onload = function () {
+        var ready = !!window.VolareChat;
+        set('c-widget', ready, ready
+          ? 'Loaded — launcher should be visible bottom-right.'
+          : 'File loaded but did not initialise.');
+      };
+      s.onerror = function () {
+        set('c-widget', false, 'Could not load /widget.js (404). Check Root Directory = volare-chatbot.');
+      };
+      document.head.appendChild(s);
+
+      // 3. Does the API answer, and is the model key configured?
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'ping', history: [], conversationId: 'status-page' }),
+      })
+        .then(function (r) {
+          return r.json().then(function (d) { return { status: r.status, data: d }; });
+        })
+        .then(function (res) {
+          if (res.status === 200 && res.data.reply) {
+            set('c-api', true, 'Model replied: "' + res.data.reply.slice(0, 90) + '"');
+          } else if (res.status === 403) {
+            set('c-api', false, 'Blocked by ALLOWED_ORIGINS — add ' + origin + ' to it, or remove the variable while testing.');
+          } else if (res.status === 500) {
+            set('c-api', false, 'Server error (' + (res.data.error || '') + '). Usually a missing or invalid OPENROUTER_API_KEY. Check Vercel → Logs.');
+          } else {
+            set('c-api', false, res.status + ': ' + (res.data.error || 'unexpected response'));
+          }
+        })
+        .catch(function (e) {
+          set('c-api', false, 'Request failed — /api/chat may not be deployed. ' + e.message);
+        });
+    </script>
+  </body>
+</html>
