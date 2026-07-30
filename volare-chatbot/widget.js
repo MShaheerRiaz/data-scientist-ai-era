@@ -171,7 +171,10 @@
     '.launcher:hover{transform:scale(1.06);box-shadow:0 6px 26px rgba(0,0,0,.3)}',
     '.launcher:focus-visible{outline:3px solid var(--accent);outline-offset:3px}',
     '.launcher svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}',
-    '.panel{width:380px;max-width:calc(100vw - 32px);height:560px;max-height:calc(100vh - 120px);background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);display:none;flex-direction:column;overflow:hidden;border:1px solid var(--line)}',
+    // dvh excludes the mobile browser's address bar; vh (declared first) is the
+    // fallback for browsers that don't support dvh. Without this the panel is taller
+    // than the visible viewport on mobile Safari and the header scrolls off-screen.
+    '.panel{width:380px;max-width:calc(100vw - 32px);height:560px;max-height:calc(100vh - 120px);max-height:calc(100dvh - 120px);background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);display:none;flex-direction:column;overflow:hidden;border:1px solid var(--line)}',
     '.panel.open{display:flex;animation:rise .22s cubic-bezier(.2,.8,.3,1)}',
     '@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}',
     '@media (prefers-reduced-motion:reduce){.panel.open{animation:none}.launcher{transition:none}}',
@@ -203,7 +206,7 @@
     '.send:focus-visible{outline:2px solid var(--accent);outline-offset:2px}',
     '.send svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}',
     '.legal{text-align:center;font-size:10.5px;color:var(--muted);margin-top:8px}',
-    '@media (max-width:440px){.wrap{bottom:12px;left:12px;right:12px;align-items:stretch}.panel{width:100%;height:calc(100vh - 96px)}.launcher{align-self:flex-end}}',
+    '@media (max-width:440px){.wrap{bottom:12px;left:12px;right:12px;align-items:stretch}.panel{width:100%;height:calc(100vh - 88px);height:calc(100dvh - 88px)}.launcher{align-self:flex-end}}',
     '</style>',
     '<div class="wrap">',
     '  <div class="panel" role="dialog" aria-modal="false" aria-label="Chat with Volare AI">',
