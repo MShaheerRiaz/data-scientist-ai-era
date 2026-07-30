@@ -16,8 +16,17 @@
 (function () {
   'use strict';
 
-  var script = document.currentScript;
-  if (!script) return;
+  // currentScript is null when the tag is injected dynamically (Framer and some
+  // tag managers do this), so fall back to locating our own tag by attribute.
+  var script =
+    document.currentScript ||
+    document.querySelector('script[data-api][src*="widget.js"]') ||
+    document.querySelector('script[data-api]');
+
+  if (!script) {
+    console.error('[volare-widget] Could not locate the widget script tag.');
+    return;
+  }
 
   var cfg = {
     api: script.dataset.api,
@@ -35,6 +44,17 @@
     console.error('[volare-widget] Missing data-api attribute on the script tag.');
     return;
   }
+
+  if (/YOUR-DEPLOYMENT/.test(cfg.api)) {
+    console.error(
+      '[volare-widget] data-api still contains the YOUR-DEPLOYMENT placeholder. ' +
+        'Replace it with your deployment domain, e.g. https://your-project.vercel.app/api/chat',
+    );
+    return;
+  }
+
+  // Framer and other SPAs can re-run injected code on client-side navigation.
+  if (document.querySelector('[data-volare-widget]')) return;
 
   var STORE_KEY = 'volare_chat_v1';
   var MAX_LEN = 2000;
