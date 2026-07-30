@@ -95,16 +95,26 @@
         '<script\n' +
         '  src="' + origin + '/widget.js"\n' +
         '  data-api="' + origin + '/api/chat"\n' +
-        '  data-accent="#111827"\n' +
+        '  data-accent="#00A651"\n' +
+        '  data-header="#ffffff"\n' +
+        '  data-header-text="#00A651"\n' +
+        '  data-header-align="center"\n' +
+        '  data-subtitle=""\n' +
         '  data-title="Volare AI"\n' +
         '  defer\n' +
         '><\/script>';
 
-      // 2. Does widget.js load and initialise?
+      // 2. Does widget.js load and initialise? Use the same Volare branding here so
+      //    this page previews exactly what the embed snippet above produces.
       var s = document.createElement('script');
       s.src = '/widget.js';
       s.defer = true;
       s.dataset.api = '/api/chat';
+      s.dataset.accent = '#00A651';
+      s.dataset.header = '#ffffff';
+      s.dataset.headerText = '#00A651';
+      s.dataset.headerAlign = 'center';
+      s.dataset.subtitle = '';
       s.onload = function () {
         var ready = !!window.VolareChat;
         set('c-widget', ready, ready
