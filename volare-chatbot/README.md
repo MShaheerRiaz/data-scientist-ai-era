@@ -42,7 +42,7 @@ Four files matter:
 | `api/_prompt.js` | System prompt, tool schema, contact details. **Tune the bot here.** |
 | `api/chat.js` | Request handling, the OpenRouter tool loop, rate limiting, CORS |
 | `api/_notify.js` | Resend email + optional Twilio WhatsApp |
-| `public/widget.js` | The embeddable widget — zero dependencies, renders in a shadow root |
+| `widget.js` | The embeddable widget — zero dependencies, renders in a shadow root |
 
 There are **no npm dependencies** — everything uses built-in `fetch`, so `npm install`
 is a no-op and deploys are instant.
@@ -89,7 +89,7 @@ credits.
 
 ```bash
 cp .env.example .env.local     # fill in the values
-npx vercel dev                 # → http://localhost:3000/demo.html
+npx vercel dev                 # → http://localhost:3000
 ```
 
 ---
