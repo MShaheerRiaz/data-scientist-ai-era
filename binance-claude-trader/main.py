@@ -1,0 +1,239 @@
+"""Main loop.
+
+One cycle per closed candle:
+
+    exits -> universe -> snapshots -> Claude decides -> risk gate -> execute
+
+The model chooses the symbol, the direction and whether to act at all. The risk
+gate decides whether that choice is permitted and how large it may be. Those
+two responsibilities never mix.
+"""
+
+from __future__ import annotations
+
+import signal
+import sys
+import time
+from datetime import datetime, timezone
+
+from binance_client import BinanceError, BinanceSpot
+from config import Config
+from decision import DECISION_SCHEMA, SYSTEM_PROMPT, build_payload
+from executor import Executor
+from journal import Journal, StateStore
+from llm.anthropic_provider import AnthropicProvider
+from llm.base import ProviderRefusal
+from risk import RiskGate
+from universe import build_snapshots, select_universe
+
+# Seconds a 15m/1h/etc. bar lasts, used to sleep until just after the next close.
+_INTERVAL_SECONDS = {
+    "1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
+    "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400,
+}
+
+_running = True
+
+
+def _handle_signal(signum, _frame):
+    global _running
+    print(f"\n[main] signal {signum} received — finishing cycle and shutting down.")
+    _running = False
+
+
+def seconds_to_next_close(interval: str, buffer: int = 5) -> float:
+    """Sleep until just after the next bar closes, so klines returns a fresh bar."""
+    period = _INTERVAL_SECONDS.get(interval, 900)
+    now = time.time()
+    return (period - (now % period)) + buffer
+
+
+def run_cycle(
+    cfg: Config,
+    client: BinanceSpot,
+    provider: AnthropicProvider,
+    gate: RiskGate,
+    executor: Executor,
+    journal: Journal,
+    store: StateStore,
+    positions: dict,
+    day,
+) -> None:
+    # 1. Honour stops and targets before considering anything new.
+    for position, reason, pnl in executor.check_exits(positions):
+        day.realised_pnl += pnl
+        print(f"[main] closed {position.symbol} on {reason}, day pnl {day.realised_pnl:.2f}")
+    store.save(positions, day)
+
+    # 2. Equity drives both sizing and the kill switch.
+    equity = client.equity_in_quote(cfg.quote_asset)
+
+    kill = gate.check_kill_switch(day, equity)
+    if not kill.approved:
+        print(f"[main] {kill.reason} — no new positions this cycle.")
+        store.save(positions, day)
+        return
+
+    # 3. Candidate set. The model picks from these; it cannot invent a symbol
+    #    outside the tradable set (the risk gate rejects anything unknown).
+    candidates = select_universe(client, cfg)
+    if not candidates:
+        print("[main] no candidates passed the liquidity filter.")
+        return
+
+    snapshots = build_snapshots(client, cfg, candidates)
+    if not snapshots:
+        print("[main] no usable snapshots this cycle.")
+        return
+
+    payload = build_payload(
+        snapshots=[s.to_dict() for s in snapshots],
+        open_positions=[
+            {
+                "symbol": p.symbol,
+                "entry": p.entry,
+                "stop": p.stop,
+                "target": p.target,
+                "quantity": p.quantity,
+            }
+            for p in positions.values()
+        ],
+        account_equity_quote=equity,
+        interval=cfg.interval,
+    )
+
+    # 4. Decide.
+    try:
+        decision, usage = provider.decide(SYSTEM_PROMPT, payload, DECISION_SCHEMA)
+    except ProviderRefusal as exc:
+        # A refusal is a no-trade, not a crash.
+        journal.error("decide", str(exc))
+        print(f"[main] model declined: {exc}")
+        return
+    except Exception as exc:  # noqa: BLE001 - network/API errors must not kill the loop
+        journal.error("decide", str(exc))
+        print(f"[main] decision failed: {exc}")
+        return
+
+    cached = usage.get("cache_read_input_tokens", 0)
+    print(
+        f"[main] decision={decision['action']} {decision.get('symbol') or '-'} "
+        f"conf={decision.get('confidence')} "
+        f"(in={usage.get('input_tokens')} cached={cached} out={usage.get('output_tokens')})"
+    )
+    if decision.get("reasoning"):
+        print(f"       {decision['reasoning']}")
+
+    action = decision.get("action")
+
+    if action == "none":
+        journal.decision(decision, "model chose no trade", False, usage, equity)
+        return
+
+    if action == "close":
+        symbol = (decision.get("symbol") or "").upper()
+        position = positions.get(symbol)
+        if not position:
+            journal.decision(decision, f"no open position in {symbol}", False, usage, equity)
+            return
+        try:
+            pnl = executor.close(position, "model_close")
+        except BinanceError:
+            return
+        day.realised_pnl += pnl
+        positions.pop(symbol, None)
+        journal.decision(decision, "closed on model instruction", True, usage, equity)
+        store.save(positions, day)
+        return
+
+    # action == "open"
+    verdict = gate.evaluate(
+        decision=decision,
+        equity=equity,
+        positions=positions,
+        day=day,
+        denylist=cfg.symbol_denylist,
+        tradable_symbols=set(client.load_filters().keys()),
+    )
+    journal.decision(decision, verdict.reason, verdict.approved, usage, equity)
+
+    if not verdict.approved:
+        print(f"[main] rejected by risk gate: {verdict.reason}")
+        return
+
+    print(
+        f"[main] approved: {verdict.quote_amount:.2f} {cfg.quote_asset} "
+        f"risking {verdict.risk_amount:.2f} at R:R {verdict.reward_risk:.2f}"
+    )
+
+    position = executor.open_long(decision, verdict)
+    if position:
+        positions[position.symbol] = position
+        store.save(positions, day)
+
+
+def main() -> int:
+    signal.signal(signal.SIGINT, _handle_signal)
+    signal.signal(signal.SIGTERM, _handle_signal)
+
+    cfg = Config.from_env()
+    client = BinanceSpot(cfg.binance_key, cfg.binance_secret, cfg.base_url)
+    journal = Journal(cfg.journal_path)
+    store = StateStore(cfg.state_path)
+    provider = AnthropicProvider(cfg.anthropic_key, cfg.model, cfg.effort)
+    gate = RiskGate(cfg.risk)
+    executor = Executor(client, journal, cfg.dry_run)
+
+    try:
+        client.ping()
+        client.load_filters()
+    except BinanceError as exc:
+        print(f"[main] cannot reach Binance: {exc}")
+        return 1
+
+    positions, day = store.load()
+
+    mode = "TESTNET" if cfg.testnet else "LIVE"
+    order_mode = "DRY-RUN (no orders sent)" if cfg.dry_run else "ORDERS ARMED"
+    print(f"[main] {mode} / {order_mode} / {cfg.model} / {cfg.interval}")
+    print(f"[main] resumed with {len(positions)} open position(s), day pnl {day.realised_pnl:.2f}")
+
+    journal.write("start", {"mode": mode, "dry_run": cfg.dry_run, "model": cfg.model})
+
+    while _running:
+        cycle_start = datetime.now(timezone.utc).isoformat()
+        print(f"\n--- cycle {cycle_start} ---")
+        try:
+            run_cycle(cfg, client, provider, gate, executor, journal, store, positions, day)
+        except Exception as exc:  # noqa: BLE001 - a bad cycle must not end the run
+            journal.error("cycle", str(exc))
+            print(f"[main] cycle error: {exc}")
+
+        if not _running:
+            break
+
+        sleep_for = seconds_to_next_close(cfg.interval)
+        print(f"[main] sleeping {sleep_for:.0f}s until next {cfg.interval} close")
+        # Wake periodically so a shutdown signal is honoured promptly rather
+        # than after a full bar.
+        slept = 0.0
+        while slept < sleep_for and _running:
+            chunk = min(cfg.poll_seconds, sleep_for - slept)
+            time.sleep(chunk)
+            slept += chunk
+
+    journal.write("stop", {"open_positions": len(positions)})
+    store.save(positions, day)
+
+    if positions:
+        print(
+            f"[main] WARNING: exiting with {len(positions)} open position(s). "
+            "Stops are enforced by this process — they are NOT resting on the "
+            "exchange. Close them manually or restart the bot."
+        )
+    print("[main] stopped.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
