@@ -25,6 +25,11 @@ class Position:
     stop: float
     target: float
     opened_at: str
+    # Captured at entry so the post-trade review judges the decision on what
+    # was actually knowable at the time. Without these the reviewer would be
+    # reasoning from the exit state, which produces hindsight, not lessons.
+    reasoning: str = ""
+    entry_snapshot: dict = field(default_factory=dict)
 
     def unrealised(self, price: float) -> float:
         return (price - self.entry) * self.quantity

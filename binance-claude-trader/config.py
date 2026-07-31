@@ -133,6 +133,18 @@ class Config:
     poll_seconds: int = 30
     journal_path: str = "journal.jsonl"
     state_path: str = "state.json"
+    lessons_path: str = "lessons.json"
+
+    # Post-trade review: the bot critiques its own closed trades and keeps the
+    # lessons. A few calls a day, so cost is negligible next to the loop.
+    enable_review: bool = True
+    max_lessons: int = 25
+
+    # News brief cadence. Deliberately far slower than the trading loop —
+    # headlines change on the scale of hours, not 15-minute bars, and
+    # refetching per bar would multiply cost for the same information.
+    enable_news: bool = True
+    news_refresh_seconds: int = 3600
 
     risk: RiskLimits = field(default_factory=RiskLimits)
 
@@ -164,6 +176,11 @@ class Config:
             poll_seconds=_env_int("POLL_SECONDS", 30),
             journal_path=_env("JOURNAL_PATH", "journal.jsonl"),
             state_path=_env("STATE_PATH", "state.json"),
+            lessons_path=_env("LESSONS_PATH", "lessons.json"),
+            enable_review=_env_bool("ENABLE_REVIEW", True),
+            max_lessons=_env_int("MAX_LESSONS", 25),
+            enable_news=_env_bool("ENABLE_NEWS", True),
+            news_refresh_seconds=_env_int("NEWS_REFRESH_SECONDS", 3600),
             # Only env vars that are actually set are passed through; every
             # default comes from RiskLimits itself.
             risk=RiskLimits(

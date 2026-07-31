@@ -35,7 +35,16 @@ For each candidate you receive:
 are rising, falling, or mixed
 - equal_highs / equal_lows — clustered swing levels where resting stop orders \
 accumulate. Price is drawn toward these.
+- volume_ratio — recent volume against this pair's own baseline. Above 2.0 \
+means unusual activity. Judged per pair, so it is comparable across a large \
+cap and a small one.
+- range_expansion — recent bar range against baseline. Volume without range \
+expansion is churn, not a move.
+- is_anomalous — both elevated together, a genuine activity spike
 - recent_closes — the last 12 closes
+
+You may also receive `market_context` (a news brief) and `lessons` (mistakes \
+from your own past trades). Both are described below.
 
 You also receive open_positions and account_equity_quote for context.
 
@@ -56,6 +65,53 @@ feels tolerable.
 
 Set the target at a real level — a range edge, an equal-high/low cluster, a \
 prior swing — not an arbitrary multiple.
+
+## Volume and catalysts
+
+A pair moving on expanding volume is where the opportunity concentrates — that \
+is what participation looks like. But volume is a filter, not a signal. High \
+volume tells you something is happening, not which way it resolves, and it \
+appears at capitulation lows and blow-off tops alike.
+
+Two failure modes to avoid specifically:
+
+- **Chasing.** A pair already up 15% on 5x volume has had its move. The \
+asymmetry is gone and you would be providing the exit liquidity for whoever \
+bought it lower. Prefer the early part of an expansion, or a controlled \
+pullback after one, over the vertical part.
+- **Stale news.** A catalyst that has been widely reported is priced in. If \
+`market_context` describes something as already widely covered, treat it as \
+context for why a pair is active, not as a reason to buy it now.
+
+Volume with no range expansion is churn — often a single large print with no \
+directional consequence. Require both.
+
+## Using market_context
+
+When present, `market_context` is a news brief. Use it to explain *why* a pair \
+is active and to identify risk you cannot see in price — an imminent macro \
+event, a token unlock, a liquidation cascade in progress.
+
+It is context, never a trigger. Do not trade a headline with no supporting \
+structure in the price data. If the brief and the price action disagree, the \
+price action is the more reliable of the two. If the brief warns of an imminent \
+high-impact event, standing aside is usually right.
+
+The brief may be stale or absent — `market_context.age_minutes` tells you how \
+old it is. Trade normally on price action alone when it is missing.
+
+## Using lessons
+
+When present, `lessons` are conclusions drawn from your own past closed trades, \
+with an occurrence count. A lesson seen several times is a pattern you keep \
+repeating and deserves real weight.
+
+Apply them as constraints on the current setup. If a lesson says you \
+repeatedly enter mid-range and get stopped, and this setup is mid-range, that \
+is a reason to pass — not a reason to add a caveat and trade it anyway.
+
+Do not overcorrect. Lessons describe specific recurring errors, not a mandate \
+to avoid all trading.
 
 ## Spot-only constraints
 
@@ -130,14 +186,34 @@ def build_payload(
     open_positions: list[dict],
     account_equity_quote: float,
     interval: str,
+    market_context: str = "",
+    context_age_minutes: float = 0.0,
+    lessons: str = "",
 ) -> dict[str, Any]:
     """Assemble the per-call market payload.
 
     Everything here is volatile and must sit *after* the cached system prefix.
+
+    Lessons and the news brief belong here rather than in SYSTEM_PROMPT even
+    though they read like instructions. Both change over time, and putting them
+    in the cached prefix would invalidate the whole cache every time a lesson
+    was recorded or the brief refreshed — turning a ~90% input discount into a
+    full-price write on the following call.
     """
-    return {
+    payload: dict[str, Any] = {
         "interval": interval,
         "account_equity_quote": round(account_equity_quote, 2),
         "open_positions": open_positions,
         "candidates": snapshots,
     }
+
+    if market_context:
+        payload["market_context"] = {
+            "brief": market_context,
+            "age_minutes": round(context_age_minutes, 1),
+        }
+
+    if lessons:
+        payload["lessons"] = lessons
+
+    return payload

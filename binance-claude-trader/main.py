@@ -17,11 +17,13 @@ import time
 from datetime import datetime, timezone
 
 from binance_client import BinanceError, BinanceSpot
+from catalyst import CatalystScanner, anomalous_symbols
 from config import Config
 from decision import DECISION_SCHEMA, SYSTEM_PROMPT, build_payload
 from executor import Executor
 from journal import Journal, StateStore
 from llm.anthropic_provider import AnthropicProvider
+from lessons import REVIEW_SCHEMA, REVIEW_SYSTEM_PROMPT, LessonBook, build_review_payload
 from llm.base import ProviderRefusal
 from risk import PaperAccount, RiskGate
 from universe import build_snapshots, select_universe
@@ -74,6 +76,72 @@ def current_equity(
     return paper.equity(positions, prices)
 
 
+def review_closed_trade(
+    cfg: Config,
+    provider: AnthropicProvider,
+    book: LessonBook,
+    journal: Journal,
+    position,
+    exit_reason: str,
+    pnl: float,
+    exit_price: float,
+) -> None:
+    """Critique one closed trade and keep the lesson, if there is one.
+
+    Failures here are swallowed: a review that errors must never affect
+    trading. The lesson is a nice-to-have, the position management is not.
+    """
+    if not cfg.enable_review:
+        return
+
+    payload = build_review_payload(
+        position_symbol=position.symbol,
+        entry=position.entry,
+        stop=position.stop,
+        target=position.target,
+        exit_price=exit_price,
+        exit_reason=exit_reason,
+        pnl=pnl,
+        opened_at=position.opened_at,
+        original_reasoning=position.reasoning,
+        entry_snapshot=position.entry_snapshot,
+    )
+
+    try:
+        review, usage = provider.review(REVIEW_SYSTEM_PROMPT, payload, REVIEW_SCHEMA)
+    except Exception as exc:  # noqa: BLE001 - review must never break trading
+        journal.error("review", str(exc))
+        print(f"[review] failed, continuing: {exc}")
+        return
+
+    journal.write(
+        "review",
+        {
+            "symbol": position.symbol,
+            "process_quality": review.get("process_quality"),
+            "outcome": review.get("outcome"),
+            "should_record": review.get("should_record"),
+            "lesson": review.get("lesson"),
+            "analysis": review.get("analysis"),
+            "usage": usage,
+        },
+    )
+
+    quality = review.get("process_quality")
+    print(f"[review] {position.symbol}: process={quality} outcome={review.get('outcome')}")
+    if review.get("analysis"):
+        print(f"         {review['analysis']}")
+
+    if review.get("should_record") and review.get("lesson"):
+        is_new = book.record(
+            text=review["lesson"],
+            tags=review.get("tags", []),
+            example=f"{position.symbol} {exit_reason} pnl={pnl:.2f}",
+        )
+        verb = "new lesson" if is_new else "reinforced lesson"
+        print(f"         {verb}: {review['lesson']}")
+
+
 def run_cycle(
     cfg: Config,
     client: BinanceSpot,
@@ -85,12 +153,18 @@ def run_cycle(
     positions: dict,
     day,
     paper,
+    book: LessonBook,
+    scanner,
 ) -> None:
     # 1. Honour stops and targets before considering anything new.
     for position, reason, pnl in executor.check_exits(positions):
         day.realised_pnl += pnl
         paper.realised_total += pnl
         print(f"[main] closed {position.symbol} on {reason}, day pnl {day.realised_pnl:.2f}")
+        exit_price = position.stop if reason == "stop" else position.target
+        review_closed_trade(
+            cfg, provider, book, journal, position, reason, pnl, exit_price
+        )
     store.save(positions, day, paper)
 
     # 2. Equity drives both sizing and the kill switch. In paper mode this must
@@ -116,8 +190,16 @@ def run_cycle(
         print("[main] no usable snapshots this cycle.")
         return
 
+    # Volume anomalies point the news scan at what is actually moving, rather
+    # than asking for generic headlines.
+    snapshot_dicts = [s.to_dict() for s in snapshots]
+    context_brief, context_age = "", 0.0
+    if scanner is not None:
+        ctx = scanner.refresh_if_stale(anomalous_symbols(snapshot_dicts))
+        context_brief, context_age = ctx.brief, ctx.age_minutes()
+
     payload = build_payload(
-        snapshots=[s.to_dict() for s in snapshots],
+        snapshots=snapshot_dicts,
         open_positions=[
             {
                 "symbol": p.symbol,
@@ -130,6 +212,9 @@ def run_cycle(
         ],
         account_equity_quote=equity,
         interval=cfg.interval,
+        market_context=context_brief,
+        context_age_minutes=context_age,
+        lessons=book.as_prompt_block(),
     )
 
     # 4. Decide.
@@ -173,6 +258,10 @@ def run_cycle(
         day.realised_pnl += pnl
         paper.realised_total += pnl
         positions.pop(symbol, None)
+        review_closed_trade(
+            cfg, provider, book, journal, position, "model_close", pnl,
+            client.price(symbol),
+        )
         journal.decision(decision, "closed on model instruction", True, usage, equity)
         store.save(positions, day, paper)
         return
@@ -199,6 +288,10 @@ def run_cycle(
 
     position = executor.open_long(decision, verdict)
     if position:
+        position.reasoning = decision.get("reasoning", "")
+        position.entry_snapshot = next(
+            (s for s in snapshot_dicts if s["symbol"] == position.symbol), {}
+        )
         positions[position.symbol] = position
         store.save(positions, day, paper)
 
@@ -214,6 +307,12 @@ def main() -> int:
     provider = AnthropicProvider(cfg.anthropic_key, cfg.model, cfg.effort)
     gate = RiskGate(cfg.risk)
     executor = Executor(client, journal, cfg.dry_run)
+    book = LessonBook(cfg.lessons_path, cfg.max_lessons)
+    scanner = (
+        CatalystScanner(cfg.anthropic_key, cfg.model, cfg.news_refresh_seconds)
+        if cfg.enable_news
+        else None
+    )
 
     try:
         client.ping()
@@ -235,6 +334,13 @@ def main() -> int:
             f"realised {paper.realised_total:+,.2f})"
         )
 
+    if book.lessons:
+        print(f"[main] carrying {len(book.lessons)} lesson(s) from past trades")
+    print(
+        f"[main] review={'on' if cfg.enable_review else 'off'} "
+        f"news={'on' if cfg.enable_news else 'off'}"
+    )
+
     journal.write("start", {"mode": mode, "dry_run": cfg.dry_run, "model": cfg.model})
 
     while _running:
@@ -243,7 +349,7 @@ def main() -> int:
         try:
             run_cycle(
                 cfg, client, provider, gate, executor, journal, store,
-                positions, day, paper,
+                positions, day, paper, book, scanner,
             )
         except Exception as exc:  # noqa: BLE001 - a bad cycle must not end the run
             journal.error("cycle", str(exc))

@@ -144,6 +144,13 @@ class Snapshot:
     range_low: float
     position_in_range: float  # 0.0 at range low, 1.0 at range high
 
+    # Activity relative to this pair's own baseline. Ratios, not absolutes:
+    # what matters is a pair being unusually busy for itself, not that BTC
+    # trades more than a small-cap.
+    volume_ratio: float       # recent avg volume / baseline avg volume
+    range_expansion: float    # recent avg bar range / baseline
+    is_anomalous: bool        # both elevated together — a real activity spike
+
     swing_high_structure: str  # rising | falling | mixed
     swing_low_structure: str
     equal_highs: list[float]
@@ -183,6 +190,12 @@ def build_snapshot(
 
     highs, lows = swing_points(candles, lookback=3)
 
+    # Imported here rather than at module scope: catalyst imports Candle from
+    # binance_client, and a top-level import would make the dependency circular.
+    from catalyst import volume_profile
+
+    activity = volume_profile(candles)
+
     def _round(values: list[float]) -> list[float]:
         return [round(v, 8) for v in values[:4]]
 
@@ -200,6 +213,9 @@ def build_snapshot(
         range_high=round(range_high, 8),
         range_low=round(range_low, 8),
         position_in_range=round(position_in_range, 3),
+        volume_ratio=activity["volume_ratio"],
+        range_expansion=activity["range_expansion"],
+        is_anomalous=activity["is_anomalous"],
         swing_high_structure=_slope_direction(highs),
         swing_low_structure=_slope_direction(lows),
         equal_highs=_round(equal_levels(highs)),

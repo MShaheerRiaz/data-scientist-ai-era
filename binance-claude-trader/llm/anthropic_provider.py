@@ -86,6 +86,50 @@ class AnthropicProvider:
         return json.loads(text), usage
 
 
+    def review(
+        self,
+        system_prompt: str,
+        trade_payload: dict[str, Any],
+        schema: dict[str, Any],
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Review one closed trade.
+
+        No cache_control here on purpose. Reviews fire a few times a day at
+        most, so a cache entry would almost always expire unused and cost the
+        write premium for nothing — the opposite of the trading loop, which
+        fires often enough to amortise it.
+        """
+        response = self._client.messages.create(
+            model=self._model,
+            max_tokens=4000,
+            system=system_prompt,
+            output_config={
+                # Reviews are not latency-sensitive and their whole value is
+                # judgement quality, so this runs a notch above the trading
+                # loop's effort.
+                "effort": "high",
+                "format": {"type": "json_schema", "schema": schema},
+            },
+            messages=[
+                {"role": "user", "content": json.dumps(trade_payload, separators=(",", ":"))}
+            ],
+        )
+
+        usage = {
+            "input_tokens": response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens,
+        }
+
+        if response.stop_reason == "refusal":
+            raise ProviderRefusal("model declined to review the trade")
+
+        text = next((b.text for b in response.content if b.type == "text"), None)
+        if not text:
+            raise ProviderRefusal("review returned no text block")
+
+        return json.loads(text), usage
+
+
 class OpenRouterProvider:
     """Placeholder showing where an OpenRouter swap would go.
 

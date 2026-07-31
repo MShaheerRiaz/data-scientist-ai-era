@@ -57,6 +57,7 @@ Run the tests before trusting anything (no pytest needed):
 python tests/test_risk.py     # 19 - the risk gate
 python tests/test_config.py   # 11 - settings coherence, safe defaults
 python tests/test_paper.py    #  9 - paper equity and simulated PnL
+python tests/test_lessons.py  # 20 - lesson dedup, volume anomalies
 ```
 
 ### Getting testnet keys
@@ -139,6 +140,64 @@ gate exists because of this. Read `journal.jsonl` before believing anything.
 
 ---
 
+## Learning from its own trades
+
+After every closed trade the bot reviews it and, when there is something worth
+keeping, writes a lesson to `lessons.json`. Lessons are injected into later
+decisions, with a count of how often each has recurred.
+
+The review scores **process and outcome separately**, which is the part most
+trade journals get wrong:
+
+| | Profit | Loss |
+|---|---|---|
+| **Sound process** | repeat it | normal variance — usually *no lesson* |
+| **Poor process** | dangerous; the result rewarded a bad decision | the real teaching case |
+
+If you only journal losses you learn superstitions: you "fix" good decisions
+that happened to lose, and keep bad decisions that happened to win. So a
+well-reasoned trade that lost normally records nothing, and a reckless trade
+that *won* still gets flagged.
+
+Reviews judge only on data captured at entry time (`entry_snapshot` on the
+position). Without that constraint the reviewer reasons from the exit and
+produces hindsight rather than lessons.
+
+Lessons are deduplicated by token similarity, so a repeated mistake increments
+a counter rather than filling the file with restatements. The threshold is
+tuned high (0.75 Jaccard) because trading lessons share heavy vocabulary —
+"volume spike means enter" and "volume spike means wait" overlap on most words
+while meaning opposite things, and merging those would silently discard one.
+
+```bash
+jq -r '.lessons[] | "\(.occurrences)x  \(.text)"' lessons.json | sort -rn
+```
+
+Turn it off with `ENABLE_REVIEW=false`.
+
+## News and catalysts
+
+Two independent signals, kept separate on purpose:
+
+**Volume anomalies** are computed from Binance data alone — no API key, no
+external service. Each pair gets `volume_ratio` and `range_expansion` measured
+against *its own* recent baseline, so a small-cap waking up registers the same
+as a large-cap doing so. Both must be elevated together to flag: volume without
+range expansion is churn, usually one large print that moves no price.
+
+**A news brief** is gathered by Claude with web search, hourly by default
+(`NEWS_REFRESH_SECONDS`). Anomalous symbols are passed in as focus, so the
+search asks about what is actually moving rather than for generic headlines.
+
+The ordering is deliberate: volume moves *before* headlines. By the time a
+story is widely reported, the move it describes has usually happened. So the
+anomaly scan leads and the news explains — never the reverse. The prompt tells
+the model to treat widely-reported news as priced in, and to avoid buying
+verticals that are already extended.
+
+A failed news fetch never stops trading — the bot falls back to pure price
+action. Turn it off with `ENABLE_NEWS=false`.
+
 ## Reading the journal
 
 Every decision is logged, including rejected ones. Rejections are the most
@@ -200,6 +259,8 @@ rebuild by hand.
 
 ```
 config.py               settings + risk limits, with the coupling documented
+lessons.py              trade review + deduplicated lesson book
+catalyst.py             volume anomalies + hourly news brief
 binance_client.py       spot REST client, hand-rolled and auditable
 indicators.py           EMA/RSI/ATR/swings, pure Python, no deps
 universe.py             liquidity-filtered candidate selection
