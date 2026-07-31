@@ -58,6 +58,7 @@ python tests/test_risk.py     # 19 - the risk gate
 python tests/test_config.py   # 11 - settings coherence, safe defaults
 python tests/test_paper.py    #  9 - paper equity and simulated PnL
 python tests/test_lessons.py  # 20 - lesson dedup, volume anomalies
+python tests/test_quant.py    # 28 - expectancy, Kelly, ruin, leverage
 ```
 
 ### Getting testnet keys
@@ -198,6 +199,51 @@ verticals that are already extended.
 A failed news fetch never stops trading — the bot falls back to pure price
 action. Turn it off with `ENABLE_NEWS=false`.
 
+## The mathematics (quant.py / analyze.py)
+
+The maths that decides trading outcomes is not calculus. It is a small set of
+results from probability and repeated-betting theory, and `quant.py` implements
+them with tests against hand-computable cases:
+
+| Function | Answers |
+|---|---|
+| `expectancy_r` | is there an edge at all? |
+| `breakeven_win_rate` | what win rate does this reward:risk require? |
+| `kelly_fraction` | given an edge, how much may be risked? |
+| `risk_of_ruin` | what is the chance of going broke before the edge pays? |
+| `liquidation_distance_pct` | how far can price move before leverage closes you out? |
+| `trades_needed_for_significance` | is the result real, or luck? |
+
+After a paper run, `analyze.py` applies all of it to your actual journal:
+
+```bash
+python analyze.py journal.jsonl
+```
+
+It reports the edge, whether the sample is large enough to believe it, the
+Kelly-implied position size, and the survival odds at several sizes.
+
+### Two results worth internalising
+
+**A high win rate does not mean profit.** `expectancy_r(0.70, 0.4)` is negative
+— winning 70% of trades while losing money, because the losses are larger than
+the wins. Win rate quoted without reward:risk is meaningless.
+
+**Overbetting a real edge still destroys the account.** From the test suite,
+with an identical 55% win rate at 1.5:1 across every row — only size changes:
+
+| risk/trade | × Kelly | P(lose 50%) | median result |
+|---|---|---|---|
+| 0.5% | 0.02× | 0.0% | 2.5× |
+| 5% | 0.20× | 0.1% | 4,218× |
+| 25% | 1.00× | 44% | huge, via 92% drawdowns |
+| 50% | 2.00× | **96%** | **0.48× — a loss** |
+| 75% | 3.00× | **100%** | 0.25× |
+
+At exactly twice Kelly the expected growth rate reaches zero; beyond it a
+genuinely profitable strategy still goes to zero. Position sizing is not a
+detail on top of a strategy — past a threshold it *is* the strategy.
+
 ## Reading the journal
 
 Every decision is logged, including rejected ones. Rejections are the most
@@ -260,6 +306,8 @@ rebuild by hand.
 ```
 config.py               settings + risk limits, with the coupling documented
 lessons.py              trade review + deduplicated lesson book
+quant.py                expectancy, Kelly, risk of ruin, leverage maths
+analyze.py              applies quant.py to your journal
 catalyst.py             volume anomalies + hourly news brief
 binance_client.py       spot REST client, hand-rolled and auditable
 indicators.py           EMA/RSI/ATR/swings, pure Python, no deps
