@@ -127,6 +127,9 @@ class Config:
     )
 
     dry_run: bool = True
+    # Simulated starting balance for paper trading. Only used when dry_run is
+    # on; a live run always reads real equity from the exchange.
+    paper_equity: float = 10_000.0
     poll_seconds: int = 30
     journal_path: str = "journal.jsonl"
     state_path: str = "state.json"
@@ -142,9 +145,12 @@ class Config:
         testnet = _env_bool("BINANCE_TESTNET", True)
         dry_run = _env_bool("DRY_RUN", True)
 
+        # Paper trading only touches public endpoints (klines, ticker prices),
+        # which need no authentication. Requiring keys there would force you to
+        # attach a real account to a run that cannot place an order anyway.
         cfg = cls(
-            binance_key=_env("BINANCE_API_KEY", required=True),
-            binance_secret=_env("BINANCE_API_SECRET", required=True),
+            binance_key=_env("BINANCE_API_KEY", required=not dry_run),
+            binance_secret=_env("BINANCE_API_SECRET", required=not dry_run),
             testnet=testnet,
             anthropic_key=_env("ANTHROPIC_API_KEY", required=True),
             model=_env("CLAUDE_MODEL", "claude-opus-5"),
@@ -154,6 +160,7 @@ class Config:
             universe_size=_env_int("UNIVERSE_SIZE", 12),
             min_quote_volume=_env_float("MIN_QUOTE_VOLUME", 20_000_000.0),
             dry_run=dry_run,
+            paper_equity=_env_float("PAPER_EQUITY", 10_000.0),
             poll_seconds=_env_int("POLL_SECONDS", 30),
             journal_path=_env("JOURNAL_PATH", "journal.jsonl"),
             state_path=_env("STATE_PATH", "state.json"),
@@ -194,7 +201,11 @@ class Config:
             )
 
         if not cfg.testnet and cfg.dry_run:
-            print("[config] live host selected but DRY_RUN=true — no orders will be sent.")
+            print(
+                f"[config] PAPER MODE: live market data from api.binance.com, "
+                f"simulated fills against {cfg.paper_equity:,.0f} {cfg.quote_asset}. "
+                f"No orders will be sent."
+            )
         if not cfg.testnet and not cfg.dry_run:
             print("[config] LIVE TRADING ARMED against api.binance.com with real funds.")
 

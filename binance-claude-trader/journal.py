@@ -14,7 +14,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any
 
-from risk import DayState, Position
+from risk import DayState, PaperAccount, Position
 
 
 def _now() -> str:
@@ -74,28 +74,51 @@ class StateStore:
     def __init__(self, path: str):
         self.path = path
 
-    def load(self) -> tuple[dict[str, Position], DayState]:
+    def load(
+        self, paper_default: PaperAccount | None = None
+    ) -> tuple[dict[str, Position], DayState, PaperAccount]:
+        paper_default = paper_default or PaperAccount()
+
         if not os.path.exists(self.path):
-            return {}, DayState()
+            return {}, DayState(), paper_default
 
         try:
             with open(self.path, encoding="utf-8") as fh:
                 raw = json.load(fh)
         except (json.JSONDecodeError, OSError) as exc:
             print(f"[state] could not read {self.path} ({exc}); starting clean")
-            return {}, DayState()
+            return {}, DayState(), paper_default
 
         positions = {
             sym: Position(**data) for sym, data in raw.get("positions", {}).items()
         }
         day = DayState(**raw.get("day", {}))
         day.roll_if_new_day()
-        return positions, day
 
-    def save(self, positions: dict[str, Position], day: DayState) -> None:
+        # Preserve accumulated paper PnL across restarts, but honour a changed
+        # PAPER_EQUITY — otherwise raising the simulated balance in .env would
+        # silently do nothing.
+        stored = raw.get("paper")
+        if stored:
+            paper = PaperAccount(
+                starting_equity=paper_default.starting_equity,
+                realised_total=stored.get("realised_total", 0.0),
+            )
+        else:
+            paper = paper_default
+
+        return positions, day, paper
+
+    def save(
+        self,
+        positions: dict[str, Position],
+        day: DayState,
+        paper: PaperAccount | None = None,
+    ) -> None:
         payload = {
             "positions": {sym: asdict(pos) for sym, pos in positions.items()},
             "day": asdict(day),
+            "paper": asdict(paper) if paper else None,
             "saved_at": _now(),
         }
         tmp = f"{self.path}.tmp"

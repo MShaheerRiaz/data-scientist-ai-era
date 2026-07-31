@@ -23,7 +23,7 @@ from executor import Executor
 from journal import Journal, StateStore
 from llm.anthropic_provider import AnthropicProvider
 from llm.base import ProviderRefusal
-from risk import RiskGate
+from risk import PaperAccount, RiskGate
 from universe import build_snapshots, select_universe
 
 # Seconds a 15m/1h/etc. bar lasts, used to sleep until just after the next close.
@@ -48,6 +48,32 @@ def seconds_to_next_close(interval: str, buffer: int = 5) -> float:
     return (period - (now % period)) + buffer
 
 
+def current_equity(
+    cfg: Config,
+    client: BinanceSpot,
+    positions: dict,
+    paper: PaperAccount,
+) -> float:
+    """Account equity in the quote asset, real or simulated.
+
+    Paper mode must not read the real balance. A fresh or empty account reports
+    near zero, every position sizes to zero, and the bot runs cleanly while
+    never taking a trade — a silent no-op that looks like "no setups found".
+    """
+    if not cfg.dry_run:
+        return client.equity_in_quote(cfg.quote_asset)
+
+    prices: dict[str, float] = {}
+    for symbol in positions:
+        try:
+            prices[symbol] = client.price(symbol)
+        except BinanceError:
+            # Fall back to entry, so a quote failure understates rather than
+            # inflates equity.
+            prices[symbol] = positions[symbol].entry
+    return paper.equity(positions, prices)
+
+
 def run_cycle(
     cfg: Config,
     client: BinanceSpot,
@@ -58,20 +84,24 @@ def run_cycle(
     store: StateStore,
     positions: dict,
     day,
+    paper,
 ) -> None:
     # 1. Honour stops and targets before considering anything new.
     for position, reason, pnl in executor.check_exits(positions):
         day.realised_pnl += pnl
+        paper.realised_total += pnl
         print(f"[main] closed {position.symbol} on {reason}, day pnl {day.realised_pnl:.2f}")
-    store.save(positions, day)
+    store.save(positions, day, paper)
 
-    # 2. Equity drives both sizing and the kill switch.
-    equity = client.equity_in_quote(cfg.quote_asset)
+    # 2. Equity drives both sizing and the kill switch. In paper mode this must
+    #    come from the simulated balance — reading the real account would size
+    #    every position against a balance the run is not actually trading.
+    equity = current_equity(cfg, client, positions, paper)
 
     kill = gate.check_kill_switch(day, equity)
     if not kill.approved:
         print(f"[main] {kill.reason} — no new positions this cycle.")
-        store.save(positions, day)
+        store.save(positions, day, paper)
         return
 
     # 3. Candidate set. The model picks from these; it cannot invent a symbol
@@ -141,9 +171,10 @@ def run_cycle(
         except BinanceError:
             return
         day.realised_pnl += pnl
+        paper.realised_total += pnl
         positions.pop(symbol, None)
         journal.decision(decision, "closed on model instruction", True, usage, equity)
-        store.save(positions, day)
+        store.save(positions, day, paper)
         return
 
     # action == "open"
@@ -169,7 +200,7 @@ def run_cycle(
     position = executor.open_long(decision, verdict)
     if position:
         positions[position.symbol] = position
-        store.save(positions, day)
+        store.save(positions, day, paper)
 
 
 def main() -> int:
@@ -191,12 +222,18 @@ def main() -> int:
         print(f"[main] cannot reach Binance: {exc}")
         return 1
 
-    positions, day = store.load()
+    positions, day, paper = store.load(PaperAccount(starting_equity=cfg.paper_equity))
 
     mode = "TESTNET" if cfg.testnet else "LIVE"
     order_mode = "DRY-RUN (no orders sent)" if cfg.dry_run else "ORDERS ARMED"
     print(f"[main] {mode} / {order_mode} / {cfg.model} / {cfg.interval}")
     print(f"[main] resumed with {len(positions)} open position(s), day pnl {day.realised_pnl:.2f}")
+    if cfg.dry_run:
+        print(
+            f"[main] paper balance {paper.starting_equity + paper.realised_total:,.2f} "
+            f"{cfg.quote_asset} (started {paper.starting_equity:,.2f}, "
+            f"realised {paper.realised_total:+,.2f})"
+        )
 
     journal.write("start", {"mode": mode, "dry_run": cfg.dry_run, "model": cfg.model})
 
@@ -204,7 +241,10 @@ def main() -> int:
         cycle_start = datetime.now(timezone.utc).isoformat()
         print(f"\n--- cycle {cycle_start} ---")
         try:
-            run_cycle(cfg, client, provider, gate, executor, journal, store, positions, day)
+            run_cycle(
+                cfg, client, provider, gate, executor, journal, store,
+                positions, day, paper,
+            )
         except Exception as exc:  # noqa: BLE001 - a bad cycle must not end the run
             journal.error("cycle", str(exc))
             print(f"[main] cycle error: {exc}")
@@ -223,7 +263,7 @@ def main() -> int:
             slept += chunk
 
     journal.write("stop", {"open_positions": len(positions)})
-    store.save(positions, day)
+    store.save(positions, day, paper)
 
     if positions:
         print(

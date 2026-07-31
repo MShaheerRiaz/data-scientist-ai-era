@@ -31,6 +31,31 @@ class Position:
 
 
 @dataclass
+class PaperAccount:
+    """Simulated balance for paper trading against live markets.
+
+    Exists because equity in dry-run cannot come from the real account: a fresh
+    or empty Binance account reports ~0, position size computes to 0, and the
+    bot silently never trades while appearing to run normally.
+
+    Equity is the starting balance plus cumulative realised PnL plus open
+    unrealised — the same quantity `equity_in_quote` returns for a real
+    account, so the risk gate needs no special case.
+    """
+
+    starting_equity: float = 10_000.0
+    realised_total: float = 0.0
+
+    def equity(self, positions: dict[str, "Position"], prices: dict[str, float]) -> float:
+        unrealised = sum(
+            pos.unrealised(prices[sym])
+            for sym, pos in positions.items()
+            if sym in prices
+        )
+        return self.starting_equity + self.realised_total + unrealised
+
+
+@dataclass
 class DayState:
     """Rolling per-UTC-day realised PnL and the kill-switch flag."""
 

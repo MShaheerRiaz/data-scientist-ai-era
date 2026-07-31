@@ -51,10 +51,12 @@ cp .env.example .env
 python main.py
 ```
 
-Run the risk tests before trusting anything:
+Run the tests before trusting anything (no pytest needed):
 
 ```bash
-python tests/test_risk.py     # 19 tests, no pytest needed
+python tests/test_risk.py     # 19 - the risk gate
+python tests/test_config.py   # 11 - settings coherence, safe defaults
+python tests/test_paper.py    #  9 - paper equity and simulated PnL
 ```
 
 ### Getting testnet keys
@@ -64,17 +66,43 @@ a key pair there. Testnet keys are separate from production keys; a production
 key sent to the testnet host just returns 401. Testnet balances are fake and
 periodically reset.
 
-### Going live (when you are ready, which is later than you think)
+### Paper trading against live markets
 
-Two switches, deliberately independent:
+The two switches are independent, which gives three modes:
+
+| `BINANCE_TESTNET` | `DRY_RUN` | Order book | Fills | Use for |
+|---|---|---|---|---|
+| `true` | `true` | testnet (fake) | simulated | checking the plumbing works |
+| `false` | `true` | **real** | simulated | **paper trading — start here** |
+| `false` | `false` | real | **real money** | when the journal has earned it |
+
+Paper mode needs **no Binance API key at all** — it only reads public
+endpoints. Leave the key fields blank:
 
 ```bash
-BINANCE_TESTNET=false   # points at api.binance.com
-DRY_RUN=false           # actually sends orders
+BINANCE_TESTNET=false
+DRY_RUN=true
+PAPER_EQUITY=10000
 ```
 
-Setting only the first gives you live market data with simulated fills — a
-genuinely useful intermediate stage. Sit there for a while.
+Testnet order books are thin and behave nothing like the real thing, so paper
+trading against the live book is the honest test. Testnet is only worth a short
+pass to confirm the plumbing.
+
+Set `PAPER_EQUITY` to what you would actually deploy. Sizing is a percentage of
+equity, so paper trading a 100k balance you don't have tells you nothing about
+the position sizes you would really see.
+
+Simulated PnL persists in `state.json` across restarts, so you can leave it
+running for weeks and read the cumulative result. Raising `PAPER_EQUITY` later
+takes effect while keeping accumulated PnL.
+
+### Going live (later than you think)
+
+```bash
+BINANCE_TESTNET=false
+DRY_RUN=false           # actually sends orders — now the keys are required
+```
 
 On the production API key: enable spot trading, **disable withdrawals**,
 disable futures, and restrict to your server's IP. A key that cannot withdraw

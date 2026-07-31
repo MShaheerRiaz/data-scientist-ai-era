@@ -106,20 +106,49 @@ def test_live_host_selected_only_when_explicitly_disabled():
     assert cfg.dry_run is True
 
 
-def test_missing_credentials_raise():
+def _load_without(*missing: str, **extra_env) -> Config:
+    """Load config with specific env vars removed."""
     saved = dict(os.environ)
     try:
-        for var in REQUIRED_ENV:
+        for var in RISK_ENV_VARS + ["BINANCE_TESTNET", "DRY_RUN"]:
             os.environ.pop(var, None)
-        try:
-            Config.from_env()
-        except RuntimeError as exc:
-            assert "BINANCE_API_KEY" in str(exc)
-        else:
-            raise AssertionError("missing credentials must raise")
+        os.environ.update(REQUIRED_ENV)
+        os.environ.update({k: str(v) for k, v in extra_env.items()})
+        for var in missing:
+            os.environ.pop(var, None)
+        return Config.from_env()
     finally:
         os.environ.clear()
         os.environ.update(saved)
+
+
+def test_anthropic_key_is_always_required():
+    """No decision model means no bot, in any mode."""
+    try:
+        _load_without("ANTHROPIC_API_KEY")
+    except RuntimeError as exc:
+        assert "ANTHROPIC_API_KEY" in str(exc)
+    else:
+        raise AssertionError("missing Anthropic key must raise")
+
+
+def test_binance_keys_are_required_only_for_live_trading():
+    """Paper mode uses public endpoints only, so it needs no account."""
+    cfg = _load_without("BINANCE_API_KEY", "BINANCE_API_SECRET", DRY_RUN="true")
+    assert cfg.binance_key == ""
+    assert cfg.dry_run is True
+
+    try:
+        _load_without("BINANCE_API_KEY", "BINANCE_API_SECRET", DRY_RUN="false")
+    except RuntimeError as exc:
+        assert "BINANCE_API_KEY" in str(exc)
+    else:
+        raise AssertionError("arming orders without Binance keys must raise")
+
+
+def test_paper_equity_defaults_and_overrides():
+    assert _load_without().paper_equity == 10_000.0
+    assert _load_without(PAPER_EQUITY=25_000).paper_equity == 25_000.0
 
 
 def test_stablecoin_pairs_are_denylisted():
