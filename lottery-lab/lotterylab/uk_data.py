@@ -57,6 +57,14 @@ UK_SOURCES: dict[str, dict[str, object]] = {
         "main": ("ball 1", "ball 2", "ball 3", "ball 4", "ball 5"),
         "bonus": ("life ball",),
     },
+    # Launched 21 July 2026. The slug and column names follow the operator's
+    # convention for its other games but have not been confirmed against a real
+    # download - if the fetch fails for this game, that is the first thing to check.
+    "uk_powerball": {
+        "slug": "powerball",
+        "main": ("ball 1", "ball 2", "ball 3", "ball 4", "ball 5"),
+        "bonus": ("powerball",),
+    },
 }
 
 _BASE = "https://www.national-lottery.co.uk/results/{slug}/draw-history/csv"

@@ -848,9 +848,12 @@ def test_set_for_life_subtier_odds_are_exact():
 
 
 def test_uk_games_listed():
+    """UK Powerball joined the list when it launched on 21 July 2026."""
     from lotterylab.config import UK_GAMES
 
-    assert set(UK_GAMES) == {"uk_lotto", "euromillions", "thunderball", "set_for_life"}
+    assert set(UK_GAMES) == {
+        "uk_lotto", "euromillions", "thunderball", "set_for_life", "uk_powerball",
+    }
     assert all(PRESETS[g].currency in ("GBP", "EUR") for g in UK_GAMES)
 
 
@@ -1262,3 +1265,99 @@ def test_report_cli(tmp_path, capsys):
 
     assert main(["report", "-o", str(tmp_path / "r.pdf")]) == 0
     assert (tmp_path / "r.pdf").exists()
+
+
+def test_report_has_no_content_outside_page_margins(tmp_path):
+    """Catch labels running off the page.
+
+    Chart labels are positioned in data coordinates, so a long bar or an
+    extreme value can push its label past the paper edge without any error
+    being raised. Three such overflows shipped before this check existed.
+    """
+    pymupdf = pytest.importorskip("pymupdf", reason="needs pymupdf to inspect the PDF")
+
+    from lotterylab.report import build_report
+
+    out = build_report(tmp_path / "layout.pdf")
+    doc = pymupdf.open(out)
+    width, height = doc[0].rect.width, doc[0].rect.height
+    margin = 28  # ~10mm
+
+    overflows = []
+    for number, page in enumerate(doc, 1):
+        for block in page.get_text("blocks"):
+            x0, y0, x1, y1, text = block[0], block[1], block[2], block[3], block[4]
+            if not text.strip():
+                continue
+            if x0 < margin - 1 or x1 > width - margin + 1 or y0 < margin - 1 or y1 > height - margin + 1:
+                overflows.append(f"page {number}: {text.strip()[:44]!r}")
+    assert not overflows, "content outside the page margins:\n  " + "\n  ".join(overflows)
+
+
+def test_report_pages_all_render():
+    """Every page must produce a non-blank page of the expected size."""
+    pymupdf = pytest.importorskip("pymupdf", reason="needs pymupdf to inspect the PDF")
+
+    import tempfile
+
+    from lotterylab.report import build_report
+
+    with tempfile.TemporaryDirectory() as tmp:
+        doc = pymupdf.open(build_report(f"{tmp}/r.pdf"))
+        assert doc.page_count == 9
+        for page in doc:
+            assert 590 < page.rect.width < 600      # A4 portrait
+            assert 835 < page.rect.height < 848
+            assert len(page.get_text().strip()) > 100
+
+
+# ---------------------------------------------------------------------------
+# UK Powerball (launched 21 July 2026)
+# ---------------------------------------------------------------------------
+
+
+def test_uk_powerball_matches_published_odds():
+    """Same 5/69 + 1/26 matrix as the US game."""
+    cfg = PRESETS["uk_powerball"]
+    assert round(1 / C.jackpot_probability(cfg)) == 292_201_338
+    # The UK-exclusive Match 2 tier lifts overall odds well above the US 1 in 24.9.
+    assert 1 / C.any_prize_probability(cfg) == pytest.approx(13.2, rel=0.05)
+
+
+def test_uk_powerball_has_the_uk_exclusive_match_2_tier():
+    """A fixed £8 for two main numbers - the US game has no such tier."""
+    cfg = PRESETS["uk_powerball"]
+    tier = next(t for t in cfg.tiers if t.name == "2")
+    assert tier.payout == 8.0
+    assert not tier.is_parimutuel
+    assert 1 / C.match_probability(cfg, tier) == pytest.approx(28.05, rel=0.01)
+
+
+def test_uk_powerball_fixed_versus_parimutuel_tiers():
+    """Only Match 5 and Match 2 are fixed; everything else varies with sales."""
+    cfg = PRESETS["uk_powerball"]
+    fixed = {t.name for t in cfg.tiers if not t.is_parimutuel}
+    assert fixed == {"5", "2"}
+    assert next(t for t in cfg.tiers if t.name == "5").payout == 1_000_000.0
+
+
+def test_uk_powerball_is_in_uk_games_and_priced_at_four_pounds():
+    from lotterylab.config import UK_GAMES
+
+    assert "uk_powerball" in UK_GAMES
+    cfg = PRESETS["uk_powerball"]
+    assert cfg.ticket_price == 4.00
+    assert cfg.currency == "GBP"
+
+
+def test_uk_powerball_is_a_poor_route_to_a_four_figure_prize():
+    """It must not displace the recommendation - it is far worse per pound."""
+    from lotterylab.compare import best_for, uk_options
+
+    best = best_for(1_000, limit=1)[0]
+    assert best.label == "EuroMillions HotPicks pick-3"
+
+    pb = [o for o in uk_options()
+          if o.game_key == "uk_powerball" and o.prize >= 1_000]
+    assert pb, "UK Powerball should still appear as an option"
+    assert min(o.cost_per_shot for o in pb) > 100 * best.cost_per_shot

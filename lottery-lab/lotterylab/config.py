@@ -429,6 +429,42 @@ _SET_FOR_LIFE = LotteryConfig(
     ),
 )
 
+_UK_POWERBALL = LotteryConfig(
+    name="Powerball (UK)",
+    main_pool=69,
+    main_pick=5,
+    bonus_mode=BonusMode.SEPARATE_POOL,
+    bonus_pool=26,
+    bonus_pick=1,
+    ticket_price=4.00,
+    currency="GBP",
+    slip_columns=10,
+    tiers=(
+        PrizeTier("5 + Powerball", 5, 1, 0.0, is_jackpot=True, is_parimutuel=True),
+        PrizeTier("5", 5, 0, 1_000_000.0),
+        PrizeTier("4 + Powerball", 4, 1, 40_000.0, is_parimutuel=True),
+        PrizeTier("4", 4, 0, 80.0, is_parimutuel=True),
+        PrizeTier("3 + Powerball", 3, 1, 80.0, is_parimutuel=True),
+        PrizeTier("3", 3, 0, 6.0, is_parimutuel=True),
+        PrizeTier("2 + Powerball", 2, 1, 6.0, is_parimutuel=True),
+        PrizeTier("2", 2, 0, 8.0),
+        PrizeTier("1 + Powerball", 1, 1, 3.0, is_parimutuel=True),
+        PrizeTier("0 + Powerball", 0, 1, 3.0, is_parimutuel=True),
+    ),
+    notes=(
+        "Launched in the UK on 21 July 2026 - a genuine National Lottery game, not a bet "
+        "with a bookmaker. Same 5/69 + 1/26 matrix as the US game, and UK players share the "
+        "SAME jackpot with US players, so the pool you split with is enormous. "
+        "THREE THINGS TO KNOW. (1) At GBP 4.00 a line it is by far the most expensive UK "
+        "ticket - four times Thunderball. (2) The jackpot is paid as a 30-YEAR ANNUITY with "
+        "no lump-sum option, so a headline GBP 1bn is GBP 33m a year whose present value is "
+        "nearer GBP 580m. (3) Only Match 5 (GBP 1,000,000) and the UK-exclusive Match 2 "
+        "(GBP 8) are FIXED; every other tier is pari-mutuel and varies with UK sales, so the "
+        "figures here for those tiers are indicative only. "
+        "Jackpot odds 1 in 292,201,338; any prize about 1 in 13."
+    ),
+)
+
 _GENERIC_649 = LotteryConfig(
     name="Generic 6/49",
     main_pool=49,
@@ -451,6 +487,7 @@ PRESETS: dict[str, LotteryConfig] = {
     "euromillions": _EUROMILLIONS,
     "thunderball": _THUNDERBALL,
     "set_for_life": _SET_FOR_LIFE,
+    "uk_powerball": _UK_POWERBALL,
     # Other
     "powerball": _POWERBALL,
     "megamillions": _MEGA_MILLIONS,
@@ -459,8 +496,10 @@ PRESETS: dict[str, LotteryConfig] = {
     "generic_649": _GENERIC_649,
 }
 
-#: The four UK National Lottery draw games, in the order they appear in shops.
-UK_GAMES: tuple[str, ...] = ("uk_lotto", "euromillions", "thunderball", "set_for_life")
+#: The UK National Lottery draw games, in the order they appear in shops.
+UK_GAMES: tuple[str, ...] = (
+    "uk_lotto", "euromillions", "thunderball", "set_for_life", "uk_powerball",
+)
 
 
 # --- Digit games -----------------------------------------------------------

@@ -96,7 +96,7 @@ That is rare. Usually access and value trade off. Here they point the same way.
 | **EuroMillions main game** | Worst value of any main UK game at 34.9% RTP. You're paying £2.50 for jackpot odds of 1 in 139,838,160 that you will never hit. |
 | **EuroMillions HotPicks pick-5** | Worst value of all, 31.5% RTP. The £1m prize is bait. |
 | **Chasing big rollover jackpots** | Sales rise with the jackpot, so you split it more ways. EV *falls* past a peak. |
-| **Powerball** | US game. Not sold in the UK. |
+| **UK Powerball** | £4 a line — four times Thunderball. Its jackpot is shared with US players *and* paid as a 30-year annuity, so a "£1bn" headline is £33m a year worth roughly £580m today. For a four-figure prize it is ~1,240× worse per pound than the pick above. |
 | **Lotto HotPicks pick-5 / Set For Life top prize** | £834k–£2.5m per expected hit. Same fantasy as the jackpot, dressed differently. |
 
 ---
@@ -206,3 +206,33 @@ If you play, treat it as entertainment with a set budget. **£10/week gives you 
 **204 automated tests pass.** Run `python -m pytest tests/ -q`.
 
 *Prize values and ticket prices change. Confirm current figures with the operator before betting.*
+
+
+---
+
+## 9. UK Powerball — the new game (launched 21 July 2026)
+
+This is a real National Lottery ticket, not lottery *betting*. Worth understanding before you buy, because three features make it very different from the headline.
+
+| | |
+|---|---|
+| Structure | 5 from 69 + 1 Powerball from 26 |
+| Price | **£4.00 a line** — the most expensive UK ticket by far |
+| Jackpot odds | 1 in 292,201,338 |
+| Any prize | about 1 in 13 |
+| Jackpot | starts £12m, no cap, **shared with US players** |
+| Payment | **30-year annuity — there is no lump-sum option** |
+
+**Three things the adverts won't lead with.**
+
+1. **£4 a line.** Four Thunderball lines, or two and a half EuroMillions HotPicks lines, for the same money.
+2. **The jackpot is a 30-year annuity.** A £1bn headline is £33.3m a year for thirty years. Discounted at 4%, that is worth about **£580m today — 58% of the number on the poster.**
+3. **You share the jackpot with American players.** The US market is far larger than the UK one, so the crowd you would split with is enormous.
+
+**What's genuinely good about it:** a UK-exclusive **Match 2** tier paying a fixed **£8** at 1 in 28, which the US game doesn't have. That's why the overall odds (1 in 13) beat US Powerball's 1 in 24.9. And **Match 5 pays a fixed £1,000,000** at 1 in 11,688,054.
+
+**For your stated goal it is still the wrong game.** Its best route to a four-figure prize is Match 4 + Powerball at roughly **£3.65m of tickets per expected win**, against **£2,940** for EuroMillions HotPicks pick-3 — about **1,240× worse per pound.**
+
+⚠️ Only **Match 5 (£1m)** and **Match 2 (£8)** are fixed. **Every other tier is pari-mutuel** and varies with UK ticket sales, so the mid-tier figures in this toolkit are indicative, not guaranteed. Check the current prize table before relying on them.
+
+**Play it if** you want the biggest jackpot on the counter and treat the £4 as entertainment. **Don't play it** expecting a realistic four- or five-figure win.

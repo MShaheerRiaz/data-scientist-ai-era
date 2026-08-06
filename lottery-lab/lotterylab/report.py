@@ -232,7 +232,7 @@ def _page_cost_per_win(pdf, plt):
 
     for idx, (target, label) in enumerate([(1_000, "£1,000 or more"),
                                            (10_000, "£10,000 or more")]):
-        ax = fig.add_axes([0.34, 0.615 - idx * 0.305, 0.60, 0.205])
+        ax = fig.add_axes([0.32, 0.615 - idx * 0.305, 0.53, 0.205])
         options = best_for(target, limit=5)
         names = [o.label.replace("EuroMillions", "EuroM").replace(" (UK)", "")
                  for o in options][::-1]
@@ -241,7 +241,7 @@ def _page_cost_per_win(pdf, plt):
 
         bars = ax.barh(names, values, color=colors, height=0.62, zorder=3)
         ax.set_xscale("log")
-        ax.set_xlim(1_000, max(values) * 3.6)
+        ax.set_xlim(1_000, max(values) * 5.5)
         _money_axis(ax)
         ax.xaxis.grid(True, zorder=0)
         ax.set_axisbelow(True)
@@ -399,8 +399,8 @@ def _page_value(pdf, plt):
     fig.text(0.06, 0.275, "Context", fontsize=12, fontweight="bold", color=INK, va="top")
     note = [
         "Lotteries are the most expensive legal gambling in Britain by a wide margin.",
-        "Roulette returns about 95p per £1; blackjack about 99p. The best lottery option",
-        "here returns 67p, and the EuroMillions main game returns 35p.",
+        "UK roulette (single zero) returns about 97p per £1; blackjack about 99p. The best",
+        "lottery option here returns 67p, and the EuroMillions main game returns 35p.",
         "",
         "That is not a reason to feel foolish for playing — it is the price of the ticket,",
         "and it buys entertainment. It is a reason not to think of it as investing.",
@@ -512,7 +512,7 @@ def _page_scale(pdf, plt):
     ]
     items.sort(key=lambda r: -r[1])
 
-    ax = fig.add_axes([0.40, 0.50, 0.54, 0.35])
+    ax = fig.add_axes([0.38, 0.50, 0.50, 0.35])
     names = [i[0] for i in items]
     values = [1 / i[1] for i in items]
     colors = [i[2] for i in items]
@@ -530,12 +530,12 @@ def _page_scale(pdf, plt):
     ax.set_xscale("log")
     # Lower bound must sit BELOW the smallest value (1 in 1,960) or that dot is
     # silently clipped off the axis and its label collides with the tick label.
-    ax.set_xlim(700, 5.5e8)
+    ax.set_xlim(700, 9.0e8)
     from matplotlib.ticker import FuncFormatter, LogLocator
     ax.xaxis.set_major_locator(LogLocator(base=10))
     ax.xaxis.set_major_formatter(FuncFormatter(
-        lambda v, _p: (f"{v/1_000_000:.0f} million" if v >= 1_000_000
-                       else f"{v/1_000:.0f},000")))
+        lambda v, _p: (f"{v/1_000_000:.0f}m" if v >= 1_000_000
+                       else f"{v/1_000:.0f}k")))
     ax.xaxis.set_minor_formatter(FuncFormatter(lambda *_: ""))
     ax.xaxis.grid(True, zorder=0)
     ax.set_axisbelow(True)
@@ -734,6 +734,7 @@ def _page_reference(pdf, plt):
         ("£20,000+", "EuroMillions HotPicks pick-4", "£1.50", "1 in 46,060", "£30,000"),
         ("Best value", "EuroMillions HotPicks pick-1", "£1.50", "1 in 10", "£10"),
         ("Best jackpot odds", "Thunderball", "£1.00", "1 in 8.1m", "£500,000"),
+        ("Biggest jackpot", "UK Powerball (new)", "£4.00", "1 in 292m", "£12m+"),
     ]
     xs = [0.07, 0.24, 0.545, 0.645, 0.83]
     y = 0.845
@@ -750,30 +751,31 @@ def _page_reference(pdf, plt):
                                       transform=fig.transFigure))
             y -= 0.008
 
-    fig.text(0.06, 0.645, "Avoid", fontsize=12, fontweight="bold", color=CRITICAL, va="top")
+    fig.text(0.06, 0.590, "Avoid", fontsize=12, fontweight="bold", color=CRITICAL, va="top")
     avoid = [
         "EuroMillions main game — worst value of the big four at 35p back per £1.",
         "EuroMillions HotPicks pick-5 — worst of all at 31p. The £1m is bait.",
         "Chasing big rollovers — more players means the jackpot splits more ways.",
-        "Powerball — a US game. It is not sold in the UK.",
+        "UK Powerball at £4 a line — 4x Thunderball, and the jackpot is a 30-year",
     ]
+    avoid.append("annuity shared with US players, not a lump sum.")
     for i, line in enumerate(avoid):
-        fig.text(0.08, 0.612 - i * 0.024, f"·  {line}", fontsize=9.5, color=INK2, va="top")
+        bullet = "·  " if not line.startswith("annuity") else "   "
+        fig.text(0.08, 0.558 - i * 0.023, f"{bullet}{line}", fontsize=9.5, color=INK2, va="top")
 
-    fig.text(0.06, 0.495, "Which numbers?", fontsize=12, fontweight="bold",
+    fig.text(0.06, 0.428, "Which numbers?", fontsize=12, fontweight="bold",
              color=INK, va="top")
     numbers = [
         "HotPicks, Thunderball, Set For Life — it genuinely does not matter. Prizes are",
         "fixed and never shared. Use birthdays if you like them.",
         "",
-        "Lotto and EuroMillions main games — numbers matter slightly, because jackpots",
-        "are shared. Avoiding popular combinations does not change your odds; it changes",
-        "how many people you split with.",
+        "Lotto, EuroMillions and UK Powerball — numbers matter slightly, because those",
+        "jackpots are shared. It does not change your odds, only how many people split it.",
     ]
     for i, line in enumerate(numbers):
-        fig.text(0.06, 0.463 - i * 0.021, line, fontsize=9.5, color=INK2, va="top")
+        fig.text(0.06, 0.398 - i * 0.021, line, fontsize=9.5, color=INK2, va="top")
 
-    fig.text(0.06, 0.315, "Commands", fontsize=12, fontweight="bold", color=INK, va="top")
+    fig.text(0.06, 0.285, "Commands", fontsize=12, fontweight="bold", color=INK, va="top")
     cmds = [
         "python -m lotterylab compare --target 1000 --weekly 10",
         "python -m lotterylab dip uk_lotto -n 5",
@@ -782,17 +784,17 @@ def _page_reference(pdf, plt):
         "python -m lotterylab fetch",
     ]
     for i, cmd in enumerate(cmds):
-        fig.text(0.08, 0.283 - i * 0.023, cmd, fontsize=8.5, color=INK2,
+        fig.text(0.08, 0.253 - i * 0.023, cmd, fontsize=8.5, color=INK2,
                  va="top", family="monospace")
 
-    fig.patches.append(plt.Rectangle((0.06, 0.088), 0.88, 0.078,
+    fig.patches.append(plt.Rectangle((0.06, 0.068), 0.88, 0.074,
                                      transform=fig.transFigure,
                                      facecolor="#f2f1ec", edgecolor=AXIS,
                                      linewidth=0.8, zorder=0))
-    fig.text(0.09, 0.148, "Set a budget before you play, and treat it as the price of "
+    fig.text(0.09, 0.126, "Set a budget before you play, and treat it as the price of "
                           "entertainment.", fontsize=10, color=INK, va="top",
              fontweight="bold")
-    fig.text(0.09, 0.124, "Every option here loses money on average. The analysis only "
+    fig.text(0.09, 0.102, "Every option here loses money on average. The analysis only "
                           "changes how fast,\nand what you might get for it.",
              fontsize=9.5, color=INK2, va="top", linespacing=1.6)
 

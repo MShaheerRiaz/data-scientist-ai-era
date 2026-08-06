@@ -71,7 +71,9 @@ def cmd_games(args: argparse.Namespace) -> int:
         print(f"  {key:<16}{cfg.name:<24}{cfg.ticket_price:>8.2f}"
               f"{odds_string(jackpot_probability(cfg)):>20}"
               f"{odds_string(any_prize_probability(cfg)):>12}")
-    print("\n  Note: Powerball is a US game and is not sold in the UK.")
+    print("\n  UK Powerball launched 21 July 2026 - a real National Lottery ticket, not")
+    print("  a bet with a bookmaker. At GBP 4.00 it is the priciest line on the counter,")
+    print("  its jackpot is shared with US players, and it pays as a 30-year annuity.")
 
     print("\nOTHER DRAW GAMES")
     print(f"  {'key':<16}{'game':<24}{'price':>8}{'top prize odds':>20}")

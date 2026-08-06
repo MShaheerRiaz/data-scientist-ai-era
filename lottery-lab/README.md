@@ -55,7 +55,7 @@ python -m lotterylab fetch --urls          # just print the links
 python -m lotterylab audit uk_lotto --uk-csv uk-data/uk_lotto.csv
 ```
 
-### The four UK National Lottery games
+### The UK National Lottery games
 
 | Game | Structure | Price | Top prize odds | Any prize | Prizes shared? |
 |---|---|---|---|---|---|
@@ -63,13 +63,14 @@ python -m lotterylab audit uk_lotto --uk-csv uk-data/uk_lotto.csv
 | **EuroMillions** | 5 of 50 + 2 of 12 | £2.50 | 1 in 139,838,160 | 1 in 13.0 | **All tiers** |
 | **Thunderball** | 5 of 39 + 1 of 14 | £1.00 | 1 in 8,060,598 | 1 in 12.4 | **Never** — all fixed |
 | **Set For Life** | 5 of 47 + 1 of 10 | £1.50 | 1 in 15,339,390 | 1 in 20.1 | **Never** — all fixed |
+| **UK Powerball** | 5 of 69 + 1 of 26 | £4.00 | 1 in 292,201,338 | 1 in 13.2 | Jackpot **shared with US** |
 
 Two practical consequences:
 
 - **Thunderball has by far the best top-prize odds** (1 in 8.1m for £1) — though the prize is a flat £500,000, never a rolling jackpot.
 - **On Thunderball and Set For Life, `--mode unpopular` gains you nothing**, because prizes are fixed and never split. The tool tells you so rather than selling you the feature. Use it on Lotto and EuroMillions, where jackpots *are* shared.
 
-*Powerball is a US game and is not sold in the UK.*
+**UK Powerball launched 21 July 2026** — a genuine National Lottery game (5 of 69 + 1 of 26, £4 a line, jackpot 1 in 292,201,338, any prize ~1 in 13), *not* lottery betting. Three things the adverts skip: it is four times the price of a Thunderball line, the jackpot is **shared with US players**, and it pays as a **30-year annuity with no lump-sum option** — so a £1bn headline is £33m a year, worth roughly £580m today. It also has a UK-exclusive **Match 2** tier paying a fixed £8, which is why its overall odds (1 in 13) beat the US game's 1 in 24.9.
 
 ## Quick start — everything else
 
