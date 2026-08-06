@@ -178,6 +178,20 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    """Build the illustrated PDF summary."""
+    try:
+        from .report import build_report
+    except ImportError:
+        raise SystemExit(
+            "The PDF report needs matplotlib, the one optional dependency in this "
+            "toolkit:\n\n    pip install matplotlib\n"
+        )
+    path = build_report(args.output)
+    print(f"Written: {path.resolve()}  ({path.stat().st_size:,} bytes)")
+    return 0
+
+
 def cmd_odds(args: argparse.Namespace) -> int:
     """Print the exact prize-tier odds for a game."""
     cfg = get_preset(args.game)
@@ -442,6 +456,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("odds", help="exact prize-tier odds")
     p.add_argument("game", nargs="?", default="canada_649")
     p.set_defaults(func=cmd_odds)
+
+    p = sub.add_parser("report", help="build the illustrated PDF summary")
+    p.add_argument("-o", "--output", default="uk-lottery-report.pdf")
+    p.set_defaults(func=cmd_report)
 
     p = sub.add_parser("compare", help="which UK game gives the best shot at a prize?")
     p.add_argument("--target", type=float, default=None,

@@ -1219,3 +1219,46 @@ def test_compare_cli_runs(argv, capsys):
 
     assert main(argv) == 0
     assert capsys.readouterr().out.strip()
+
+
+# ---------------------------------------------------------------------------
+# PDF report
+# ---------------------------------------------------------------------------
+
+matplotlib = pytest.importorskip("matplotlib", reason="report needs matplotlib")
+
+
+def test_report_builds_a_valid_pdf(tmp_path):
+    from lotterylab.report import build_report
+
+    out = build_report(tmp_path / "report.pdf")
+    assert out.exists()
+    data = out.read_bytes()
+    assert data.startswith(b"%PDF")
+    assert len(data) > 20_000
+
+
+def test_report_money_formatting_keeps_meaningful_digits():
+    """£1,500 must not be rounded to '£2k'."""
+    from lotterylab.report import _odds_short, _short_money
+
+    assert _short_money(1_500) == "£1,500"
+    assert _short_money(13_000) == "£13k"
+    assert _short_money(1_000_000) == "£1m"
+    assert _odds_short(1 / 1_960) == "1 in 1,960"
+    assert _odds_short(1 / 139_838_160) == "1 in 139.8m"
+
+
+def test_report_uses_whole_game_rtp_not_one_tier():
+    """Lotto's Match 5 tier alone returns ~1%; the whole game returns ~40%."""
+    from lotterylab.report import _whole_game_rtp
+
+    assert 0.35 < _whole_game_rtp("uk_lotto") < 0.50
+    assert 0.30 < _whole_game_rtp("euromillions") < 0.45
+
+
+def test_report_cli(tmp_path, capsys):
+    from lotterylab.cli import main
+
+    assert main(["report", "-o", str(tmp_path / "r.pdf")]) == 0
+    assert (tmp_path / "r.pdf").exists()
