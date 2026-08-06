@@ -133,18 +133,58 @@ def _whole_game_rtp(game_key: str) -> float:
     return total / cfg.ticket_price
 
 
-def _page_header(fig, title: str, subtitle: str = "", number: str = ""):
-    """Consistent page furniture."""
-    fig.text(0.06, 0.955, title, fontsize=17, fontweight="bold", color=INK, va="top")
+def _page_header(fig, key: str, title: str, subtitle: str = ""):
+    """Consistent page furniture, numbered from the ordering table."""
+    part = _PART_OF.get(key, "")
+    if part:
+        fig.text(0.06, 0.963, part, fontsize=7.5, color=MUTED,
+                 va="top", fontweight="bold")
+    fig.text(0.06, 0.944, title, fontsize=17, fontweight="bold", color=INK, va="top")
     if subtitle:
-        fig.text(0.06, 0.917, subtitle, fontsize=10.5, color=INK2, va="top")
-    if number:
-        fig.text(0.94, 0.955, number, fontsize=9, color=MUTED, va="top", ha="right")
+        fig.text(0.06, 0.908, subtitle, fontsize=10.5, color=INK2, va="top")
+    fig.text(0.94, 0.944, str(_PAGE_NO[key]), fontsize=9, color=MUTED,
+             va="top", ha="right")
 
 
 def _footer(fig, text: str = ""):
     fig.text(0.06, 0.035, text or "lotterylab · every figure computed, not quoted",
              fontsize=7.5, color=MUTED, va="bottom")
+
+
+
+# ---------------------------------------------------------------------------
+# Page order
+# ---------------------------------------------------------------------------
+#
+# The reading order lives HERE and nowhere else. Page numbers, the contents
+# page and every cross-reference are derived from this list, so adding or
+# moving a page cannot leave stale numbering behind - which is exactly what
+# happened when three pages were appended by hand.
+
+_ORDER: list[tuple[str, str, str]] = [
+    # key            part                            title
+    ("cover",        "",                             "UK Lottery"),
+    ("contents",     "",                             "What is in this report"),
+    ("ranked",       "PART 1 - WHAT TO PLAY",        "The games, ranked"),
+    ("cost",         "PART 1 - WHAT TO PLAY",        "What it costs to win"),
+    ("budget",       "PART 1 - WHAT TO PLAY",        "What £10 a week actually buys"),
+    ("value",        "PART 2 - WHAT IT COSTS YOU",   "Where the money goes"),
+    ("tradeoff",     "PART 2 - WHAT IT COSTS YOU",   "The trade-off, and why it breaks"),
+    ("powerball",    "PART 3 - THE GAMES UP CLOSE",  "UK Powerball — the new game"),
+    ("scale",        "PART 3 - THE GAMES UP CLOSE",  "How long are the odds, really?"),
+    ("millionaires", "PART 4 - WHAT NOT TO BELIEVE", "Why someone wins a million every week"),
+    ("myths",        "PART 4 - WHAT NOT TO BELIEVE", "What does not work"),
+    ("reference",    "PART 5 - KEEP THIS",           "Quick reference"),
+    ("simple",       "PART 5 - KEEP THIS",           "In simple words"),
+]
+
+_PAGE_NO = {key: i + 1 for i, (key, _part, _title) in enumerate(_ORDER)}
+_PART_OF = {key: part for key, part, _title in _ORDER}
+
+
+def page_number(key: str) -> int:
+    """Printed page number for a section, so cross-references stay correct."""
+    return _PAGE_NO[key]
 
 
 # ---------------------------------------------------------------------------
@@ -223,12 +263,72 @@ def _page_cover(pdf, plt):
     plt.close(fig)
 
 
+def _page_contents(pdf, plt):
+    """A map of the report, so the reader can jump straight to what they need."""
+    fig = plt.figure(figsize=(8.27, 11.69))
+    _page_header(fig, "contents", "What is in this report",
+                 "Read pages 3 to 5 if you only read three pages.")
+
+    blurbs = {
+        "ranked":       "Every game placed first to fifth, with cost, odds and prize.",
+        "cost":         "How much you must stake, on average, to actually win.",
+        "budget":       "What a real weekly budget buys you over a year.",
+        "value":        "Of every £1 staked, how much comes back as prizes.",
+        "tradeoff":     "Why one option is both the cheapest to win AND better value.",
+        "powerball":    "The new game, in full - prize table and three warnings.",
+        "scale":        "What 1 in 292 million means, against things you can picture.",
+        "millionaires": "Why a winner appears nearly every week, by design.",
+        "myths":        "Hot numbers, due numbers, lucky systems - all tested, all failed.",
+        "reference":    "The whole report on one page, to keep.",
+        "simple":       "Everything again, in plain words with no arithmetic.",
+    }
+
+    y = 0.858
+    current_part = None
+    for key, part, title in _ORDER:
+        if key in ("cover", "contents"):
+            continue
+        if part != current_part:
+            current_part = part
+            y -= 0.012
+            fig.text(0.06, y, part, fontsize=8, fontweight="bold", color=MUTED, va="top")
+            fig.add_artist(plt.Line2D([0.06, 0.94], [y - 0.014, y - 0.014],
+                                      color=GRID, linewidth=0.8,
+                                      transform=fig.transFigure))
+            y -= 0.026
+
+        highlight = key in ("ranked", "simple")
+        fig.text(0.065, y, str(_PAGE_NO[key]), fontsize=11,
+                 fontweight="bold", color=BLUE if highlight else MUTED, va="top")
+        fig.text(0.115, y, title, fontsize=11.5,
+                 fontweight="bold" if highlight else "normal",
+                 color=INK if highlight else INK2, va="top")
+        fig.text(0.115, y - 0.020, blurbs[key], fontsize=8.8, color=MUTED, va="top")
+        y -= 0.042
+
+    fig.patches.append(plt.Rectangle((0.06, 0.075), 0.88, 0.115, transform=fig.transFigure,
+                                     facecolor="#eef4fd", edgecolor=BLUE,
+                                     linewidth=1.0, zorder=0))
+    fig.text(0.09, 0.172, "IN ONE LINE", fontsize=8.5, color=BLUE,
+             fontweight="bold", va="top")
+    fig.text(0.09, 0.150,
+             "Play EuroMillions HotPicks, pick 3 numbers, GBP 1.50 a line.".replace("GBP ", "£"),
+             fontsize=13, fontweight="bold", color=INK, va="top")
+    fig.text(0.09, 0.121,
+             "£1,500 if all three come up, at 1 in 1,960 - about a 1 in 6 chance across a\n"
+             "year at £10 a week. Everything else in this report explains why.",
+             fontsize=9.5, color=INK2, va="top", linespacing=1.7)
+    _footer(fig)
+    pdf.savefig(fig)
+    plt.close(fig)
+
+
 def _page_cost_per_win(pdf, plt):
     """The headline chart: what it costs to win a meaningful prize."""
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "What it costs to win",
+    _page_header(fig, "cost", "What it costs to win",
                  "Pounds of tickets you must buy, on average, to win the prize once.\n"
-                 "Shorter is better. The scale multiplies by TEN at each gridline.", "1")
+                 "Shorter is better. The scale multiplies by TEN at each gridline.")
 
     for idx, (target, label) in enumerate([(1_000, "£1,000 or more"),
                                            (10_000, "£10,000 or more")]):
@@ -279,8 +379,8 @@ def _page_cost_per_win(pdf, plt):
 def _page_budget(pdf, plt):
     """What a realistic weekly budget actually buys."""
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "What £10 a week actually buys",
-                 "£520 over a year. Chance of winning the prize at least once.", "2")
+    _page_header(fig, "budget", "What £10 a week actually buys",
+                 "£520 over a year. Chance of winning the prize at least once.")
 
     picks = best_for(1_000, limit=3) + best_for(10_000, limit=1)
     seen, options = set(), []
@@ -351,9 +451,9 @@ def _page_budget(pdf, plt):
 def _page_value(pdf, plt):
     """Where the money goes - return to player."""
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "Where the money goes",
+    _page_header(fig, "value", "Where the money goes",
                  "Of every £1 staked, how much comes back to players as prizes.\n"
-                 "The rest is the operator's margin, good causes and tax.", "3")
+                 "The rest is the operator's margin, good causes and tax.")
 
     rows: list[tuple[str, float]] = []
     from .combinatorics import all_tier_probabilities
@@ -418,9 +518,9 @@ def _page_value(pdf, plt):
 def _page_tradeoff(pdf, plt):
     """Access against value - why one option is the answer."""
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "The trade-off, and why it breaks",
+    _page_header(fig, "tradeoff", "The trade-off, and why it breaks",
                  "Usually a better shot at a prize costs you value. For one option,\n"
-                 "it does not — which is what settles the recommendation.", "4")
+                 "it does not — which is what settles the recommendation.")
 
     ax = fig.add_axes([0.13, 0.47, 0.80, 0.37])
     options = [o for o in uk_options() if o.prize >= 1_000]
@@ -495,9 +595,9 @@ def _page_tradeoff(pdf, plt):
 def _page_scale(pdf, plt):
     """Making jackpot odds concrete."""
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "How long are the odds, really?",
+    _page_header(fig, "scale", "How long are the odds, really?",
                  "Jackpot odds are too large to feel. These comparisons are exact\n"
-                 "mathematics, not estimates, so they can be trusted as anchors.", "5")
+                 "mathematics, not estimates, so they can be trusted as anchors.")
 
     items = [
         ("Roll six 6s in a row", 1 / 6 ** 6, RECEDE),
@@ -584,8 +684,8 @@ def _page_scale(pdf, plt):
 def _page_millionaires(pdf, plt):
     """Why somebody wins every week."""
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "Why someone wins a million every week",
-                 "You see it at the till, and you are right. It is designed that way.", "6")
+    _page_header(fig, "millionaires", "Why someone wins a million every week",
+                 "You see it at the till, and you are right. It is designed that way.")
 
     lotto = expected_winners(PRESETS["uk_lotto"], 15_000_000, game_key="uk_lotto")
     lotto_m = lotto.expected_above(1_000_000) * 2
@@ -658,8 +758,8 @@ def _page_millionaires(pdf, plt):
 def _page_myths(pdf, plt):
     """What does not work, with the evidence."""
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "What does not work",
-                 "Each of these was tested rather than assumed.", "7")
+    _page_header(fig, "myths", "What does not work",
+                 "Each of these was tested rather than assumed.")
 
     cfg = PRESETS["uk_lotto"]
     lifts = (1.05, 1.10, 1.20, 1.50)
@@ -725,7 +825,7 @@ def _page_myths(pdf, plt):
 def _page_reference(pdf, plt):
     """The card to keep."""
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "Quick reference", "The whole report on one page.", "8")
+    _page_header(fig, "reference", "Quick reference", "The whole report on one page.")
 
     rows = [
         ("GOAL", "PLAY", "COST", "ODDS", "PRIZE"),
@@ -809,9 +909,9 @@ def _page_reference(pdf, plt):
 def _page_ranked(pdf, plt):
     """Every option ranked, in plain language."""
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "The games, ranked",
+    _page_header(fig, "ranked", "The games, ranked",
                  "Best first. Ranked by what it costs you, on average, to actually\n"
-                 "win the kind of prize you said you care about.", "1")
+                 "win the kind of prize you said you care about.")
 
     options = {o.label: o for o in uk_options()}
     hp_l = HOTPICKS["lotto_hotpicks"]
@@ -858,7 +958,7 @@ def _page_ranked(pdf, plt):
         ("Want your money to last longest?", "EuroMillions HotPicks pick 1 number — £1.50 to win "
          "£10 at 1 in 10.", "67p of every £1 comes back, the best of any UK option."),
         ("Want the biggest possible jackpot?", "UK Powerball — £4.00, jackpot 1 in 292,201,338, "
-         "starts around £12 million.", "See page 7. Read the three warnings before you buy it."),
+         "starts around £12 million.", f"See page {page_number('powerball')}. Read the three warnings before you buy it."),
     ]
     yy = 0.212
     for title, line1, line2 in extras:
@@ -876,9 +976,9 @@ def _page_powerball(pdf, plt):
     """UK Powerball in full - new game, and the one most likely to mislead."""
     cfg = PRESETS["uk_powerball"]
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "UK Powerball — the new game",
+    _page_header(fig, "powerball", "UK Powerball — the new game",
                  "Launched 21 July 2026. You can buy it at the till like any other\n"
-                 "ticket. It is a real lottery ticket, not a bet with a bookmaker.", "6")
+                 "ticket. It is a real lottery ticket, not a bet with a bookmaker.")
 
     facts = [
         ("Price", "£4.00 a line"),
@@ -915,7 +1015,7 @@ def _page_powerball(pdf, plt):
             prize, fixed = f"about £{tier.payout:,.0f}", "varies"
         else:
             prize, fixed = f"£{tier.payout:,.0f}", "FIXED"
-        highlight = tier.name in ("5", "2", "4")
+        highlight = tier.name in ("5", "2")
         colour = BLUE if highlight else INK2
         fig.text(0.07, y, tier.name, fontsize=9.5, color=colour,
                  fontweight="bold" if highlight else "normal", va="top")
@@ -958,8 +1058,8 @@ def _page_powerball(pdf, plt):
 def _page_simple(pdf, plt):
     """The whole thing in plain words."""
     fig = plt.figure(figsize=(8.27, 11.69))
-    _page_header(fig, "In simple words",
-                 "The whole report, with no maths.", "10")
+    _page_header(fig, "simple", "In simple words",
+                 "The whole report, with no maths.")
 
     blocks = [
         ("If you want a realistic chance of winning something worthwhile",
@@ -1032,18 +1132,25 @@ def build_report(output: str | Path = "uk-lottery-report.pdf") -> Path:
     output.parent.mkdir(parents=True, exist_ok=True)
 
     with PdfPages(output) as pdf:
-        _page_cover(pdf, plt)
-        _page_ranked(pdf, plt)
-        _page_cost_per_win(pdf, plt)
-        _page_budget(pdf, plt)
-        _page_value(pdf, plt)
-        _page_tradeoff(pdf, plt)
-        _page_powerball(pdf, plt)
-        _page_scale(pdf, plt)
-        _page_millionaires(pdf, plt)
-        _page_myths(pdf, plt)
-        _page_reference(pdf, plt)
-        _page_simple(pdf, plt)
+        builders = {
+            "cover": _page_cover,
+            "contents": _page_contents,
+            "ranked": _page_ranked,
+            "cost": _page_cost_per_win,
+            "budget": _page_budget,
+            "value": _page_value,
+            "tradeoff": _page_tradeoff,
+            "powerball": _page_powerball,
+            "scale": _page_scale,
+            "millionaires": _page_millionaires,
+            "myths": _page_myths,
+            "reference": _page_reference,
+            "simple": _page_simple,
+        }
+        # Emitted strictly in _ORDER, so the printed numbers, the contents
+        # page and the actual sequence cannot disagree.
+        for key, _part, _title in _ORDER:
+            builders[key](pdf, plt)
 
         info = pdf.infodict()
         info["Title"] = "UK Lottery - What the numbers actually say"

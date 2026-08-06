@@ -1302,9 +1302,13 @@ def test_report_pages_all_render():
 
     from lotterylab.report import build_report
 
+    from lotterylab.report import _ORDER
+
     with tempfile.TemporaryDirectory() as tmp:
         doc = pymupdf.open(build_report(f"{tmp}/r.pdf"))
-        assert doc.page_count == 12
+        # Derived, not typed — a hard-coded count goes stale the moment a
+        # page is added, which is how the numbering drifted in the first place.
+        assert doc.page_count == len(_ORDER)
         for page in doc:
             assert 590 < page.rect.width < 600      # A4 portrait
             assert 835 < page.rect.height < 848
@@ -1382,3 +1386,50 @@ def test_uk_powerball_lower_tiers_are_uk_funded_not_us_amounts():
     assert match4.is_parimutuel
     # The US game's Match 4 is $100 - an order of magnitude apart.
     assert PRESETS["powerball"].tiers[3].payout == 100.0
+
+
+def test_report_pages_are_numbered_in_sequence(tmp_path):
+    """Printed page numbers must match actual position.
+
+    Three pages were once appended by hand and the hand-typed numbers went
+    stale: two pages printed "1", two printed "6", and one printed "5"
+    after a page printing "6". Numbers now derive from _ORDER, and this
+    pins that.
+    """
+    pymupdf = pytest.importorskip("pymupdf", reason="needs pymupdf to inspect the PDF")
+
+    from lotterylab.report import _ORDER, build_report
+
+    doc = pymupdf.open(build_report(tmp_path / "ordered.pdf"))
+    assert doc.page_count == len(_ORDER)
+
+    for position, page in enumerate(doc, 1):
+        printed = [b[4].strip() for b in page.get_text("blocks")
+                   if b[0] > 500 and b[1] < 80 and b[4].strip().isdigit()]
+        if position == 1:
+            continue  # the cover carries no number
+        assert printed == [str(position)], (
+            f"page {position} prints {printed!r}, expected [{str(position)!r}]"
+        )
+
+
+def test_report_cross_references_follow_the_ordering():
+    """'See page N' must be computed, never typed."""
+    from lotterylab.report import _ORDER, page_number
+
+    assert page_number("powerball") == [k for k, _, _ in _ORDER].index("powerball") + 1
+    assert page_number("cover") == 1
+    assert page_number("simple") == len(_ORDER)
+
+
+def test_report_contents_page_lists_every_section(tmp_path):
+    pymupdf = pytest.importorskip("pymupdf", reason="needs pymupdf to inspect the PDF")
+
+    from lotterylab.report import _ORDER, build_report
+
+    doc = pymupdf.open(build_report(tmp_path / "contents.pdf"))
+    text = doc[1].get_text()
+    for key, _part, title in _ORDER:
+        if key in ("cover", "contents"):
+            continue
+        assert title in text, f"{title!r} missing from the contents page"
