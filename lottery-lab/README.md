@@ -1,5 +1,11 @@
 # lotterylab
 
+> ## 👉 Just want the answer? Read **[PLAYBOOK.md](PLAYBOOK.md)**.
+>
+> It is the single source of truth: which UK game to play for which prize level, which numbers to pick, and what to ignore. Everything in it is verified.
+>
+> **Branch note:** use `claude/bossman-hrljpk` / `lottery-lab/`. The older branch `claude/uk-lottery-probability-CgSGE` contains **incorrect odds** and is superseded — see PLAYBOOK.md §0.
+
 A dependency-free Python toolkit for analysing lotteries honestly: probability, game theory, fairness auditing, covering designs, and digit games (2D/3D).
 
 It is built around one uncomfortable fact, and does not try to talk you out of it:

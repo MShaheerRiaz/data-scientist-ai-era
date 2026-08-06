@@ -150,6 +150,34 @@ def cmd_winners(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_compare(args: argparse.Namespace) -> int:
+    """Answer 'which game should I play?' for a given prize target."""
+    from .compare import best_for, budget_outcome, compare_table, value_table
+
+    if args.value:
+        print(value_table())
+        return 0
+
+    if args.target:
+        print(compare_table(targets=(args.target,), limit=args.limit))
+        print()
+        print("  WHAT YOUR BUDGET BUYS")
+        print(f"  {'option':<34}{'lines':>7}{'P(win it)':>12}{'odds':>14}{'exp. back':>12}")
+        for option in best_for(args.target, limit=args.limit):
+            result = budget_outcome(option, args.weekly, args.weeks)
+            print(f"  {option.label:<34}{int(result['lines']):>7}{result['p_win']:>12.2%}"
+                  f"{'1 in ' + format(result['odds'], ',.0f'):>14}"
+                  f"{'GBP ' + format(result['expected_returned'], ',.0f'):>12}")
+        print(f"\n  Based on {args.weekly:.2f} a week for {args.weeks} weeks "
+              f"(GBP {args.weekly * args.weeks:,.0f} total).")
+        return 0
+
+    print(compare_table(limit=args.limit))
+    print()
+    print(value_table())
+    return 0
+
+
 def cmd_odds(args: argparse.Namespace) -> int:
     """Print the exact prize-tier odds for a game."""
     cfg = get_preset(args.game)
@@ -414,6 +442,16 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("odds", help="exact prize-tier odds")
     p.add_argument("game", nargs="?", default="canada_649")
     p.set_defaults(func=cmd_odds)
+
+    p = sub.add_parser("compare", help="which UK game gives the best shot at a prize?")
+    p.add_argument("--target", type=float, default=None,
+                   help="prize level you actually care about, e.g. 1000")
+    p.add_argument("--weekly", type=float, default=10.0, help="your weekly budget")
+    p.add_argument("--weeks", type=int, default=52)
+    p.add_argument("--limit", type=int, default=4)
+    p.add_argument("--value", action="store_true",
+                   help="rank by return to player instead")
+    p.set_defaults(func=cmd_compare)
 
     p = sub.add_parser("dip", help="generate lines (the Lucky Dip generator)")
     p.add_argument("game", nargs="?", default="uk_lotto")

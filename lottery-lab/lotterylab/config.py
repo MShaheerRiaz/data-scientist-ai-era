@@ -24,6 +24,8 @@ __all__ = [
     "DigitGameConfig",
     "PRESETS",
     "DIGIT_PRESETS",
+    "HOTPICKS",
+    "HotPicksConfig",
     "get_preset",
     "list_presets",
 ]
@@ -540,6 +542,101 @@ DIGIT_PRESETS: dict[str, DigitGameConfig] = {
             "giving a 64% return and a 36% edge."
         ),
     ),
+}
+
+
+@dataclass(frozen=True)
+class HotPicksConfig:
+    """A HotPicks-style side bet: pick ``k`` numbers, match **all** of them.
+
+    HotPicks games ride on an existing draw — Lotto HotPicks uses the six
+    main Lotto balls, EuroMillions HotPicks the five main EuroMillions
+    balls — but they are a different bet entirely. You choose how many
+    numbers to play, and you win only by matching every one of them.
+
+    Two properties make them worth understanding rather than dismissing:
+
+    * **Prizes are fixed and never shared.** A win pays the same amount no
+      matter how many other people hold your numbers, so which numbers you
+      choose is irrelevant to your payout. That removes the entire
+      game-theory dimension that matters in the main games.
+    * **They give far better access to mid-size prizes.** Matching three of
+      five in EuroMillions HotPicks pays GBP 1,500 at 1 in 1,960, against
+      1 in 141,690 for Lotto's GBP 1,750 Match 5. If your goal is a
+      four-figure prize rather than a jackpot, this is the difference that
+      dominates every other consideration.
+
+    The probability of matching all ``k`` picks is exactly
+    ``C(drawn, k) / C(pool, k)``.
+    """
+
+    name: str
+    main_pool: int              # 59 for Lotto, 50 for EuroMillions
+    drawn: int                  # 6 main Lotto balls, 5 EuroMillions balls
+    ticket_price: float
+    currency: str = "GBP"
+    payouts: dict[int, float] = field(default_factory=dict)
+    notes: str = ""
+
+    def probability(self, picks: int) -> float:
+        """P(all ``picks`` numbers match)."""
+        if picks not in self.payouts:
+            raise ValueError(f"{self.name} does not offer a {picks}-number pick")
+        from math import comb
+
+        return comb(self.drawn, picks) / comb(self.main_pool, picks)
+
+    def payout(self, picks: int) -> float:
+        """Prize for matching all ``picks`` numbers."""
+        return self.payouts[picks]
+
+    def expected_return(self, picks: int) -> float:
+        """Expected return per unit staked."""
+        return self.probability(picks) * self.payouts[picks] / self.ticket_price
+
+    def house_edge(self, picks: int) -> float:
+        """Operator's expected take per unit staked."""
+        return 1.0 - self.expected_return(picks)
+
+    def describe(self, picks: int) -> str:
+        """One-line summary of a given pick size."""
+        p = self.probability(picks)
+        return (f"{self.name} pick-{picks}: match {picks} to win "
+                f"{self.currency} {self.payouts[picks]:,.0f} at 1 in {1 / p:,.0f}, "
+                f"RTP {self.expected_return(picks):.1%}")
+
+
+_LOTTO_HOTPICKS = HotPicksConfig(
+    name="Lotto HotPicks",
+    main_pool=59,
+    drawn=6,
+    ticket_price=1.00,
+    currency="GBP",
+    payouts={1: 6.0, 2: 60.0, 3: 800.0, 4: 13_000.0, 5: 350_000.0},
+    notes=(
+        "Same draw as Lotto, different bet. The bonus ball does NOT count. "
+        "Prizes are fixed and never shared, so number choice cannot affect payout."
+    ),
+)
+
+_EUROMILLIONS_HOTPICKS = HotPicksConfig(
+    name="EuroMillions HotPicks",
+    main_pool=50,
+    drawn=5,
+    ticket_price=1.50,
+    currency="GBP",
+    payouts={1: 10.0, 2: 100.0, 3: 1_500.0, 4: 30_000.0, 5: 1_000_000.0},
+    notes=(
+        "Uses the five main EuroMillions balls; Lucky Stars do NOT count. "
+        "Prizes are fixed and never shared. The pick-3 tier is the single best "
+        "route to a four-figure prize of any UK game."
+    ),
+)
+
+#: HotPicks side bets, keyed like the main presets.
+HOTPICKS: dict[str, HotPicksConfig] = {
+    "lotto_hotpicks": _LOTTO_HOTPICKS,
+    "euromillions_hotpicks": _EUROMILLIONS_HOTPICKS,
 }
 
 

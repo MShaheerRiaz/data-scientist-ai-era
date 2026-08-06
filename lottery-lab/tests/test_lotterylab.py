@@ -1091,3 +1091,131 @@ def test_uk_cli_commands_run(argv, capsys):
 
     assert main(argv) == 0
     assert capsys.readouterr().out.strip()
+
+
+# ---------------------------------------------------------------------------
+# HotPicks
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("picks,expected", [
+    (1, 10), (2, 122.5), (3, 1_960), (4, 46_060), (5, 2_118_760),
+])
+def test_euromillions_hotpicks_odds_match_published(picks, expected):
+    """EuroMillions HotPicks matches the operator on all five tiers."""
+    from lotterylab.config import HOTPICKS
+
+    hp = HOTPICKS["euromillions_hotpicks"]
+    assert 1 / hp.probability(picks) == pytest.approx(expected, rel=1e-3)
+
+
+@pytest.mark.parametrize("picks,expected", [
+    (3, 1_625.45), (4, 30_341.73), (5, 834_397.67),
+])
+def test_lotto_hotpicks_odds_match_published(picks, expected):
+    from lotterylab.config import HOTPICKS
+
+    hp = HOTPICKS["lotto_hotpicks"]
+    assert 1 / hp.probability(picks) == pytest.approx(expected, rel=1e-3)
+
+
+def test_hotpicks_formula_is_the_ratio_of_binomials():
+    from lotterylab.config import HOTPICKS
+
+    for hp in HOTPICKS.values():
+        for picks in hp.payouts:
+            assert hp.probability(picks) == pytest.approx(
+                C.comb(hp.drawn, picks) / C.comb(hp.main_pool, picks), rel=1e-12
+            )
+
+
+def test_hotpicks_rejects_unsupported_pick_size():
+    from lotterylab.config import HOTPICKS
+
+    with pytest.raises(ValueError):
+        HOTPICKS["lotto_hotpicks"].probability(6)
+
+
+def test_hotpicks_house_edge_is_positive_everywhere():
+    from lotterylab.config import HOTPICKS
+
+    for hp in HOTPICKS.values():
+        for picks in hp.payouts:
+            assert 0.30 < hp.house_edge(picks) < 0.70
+
+
+# ---------------------------------------------------------------------------
+# Game comparison
+# ---------------------------------------------------------------------------
+
+
+def test_euromillions_hotpicks_pick3_is_best_route_to_1000():
+    """The headline recommendation must hold."""
+    from lotterylab.compare import best_for
+
+    best = best_for(1_000, limit=1)[0]
+    assert best.label == "EuroMillions HotPicks pick-3"
+    assert best.prize == 1_500
+    assert best.cost_per_shot == pytest.approx(2_940, rel=1e-3)
+
+
+def test_lotto_hotpicks_pick4_is_best_route_to_10000():
+    from lotterylab.compare import best_for
+
+    best = best_for(10_000, limit=1)[0]
+    assert best.label == "Lotto HotPicks pick-4"
+    assert best.cost_per_shot == pytest.approx(30_342, rel=1e-3)
+
+
+def test_hotpicks_pick3_beats_lotto_match5_by_a_wide_margin():
+    """98x per pound is the number the recommendation rests on."""
+    from lotterylab.compare import uk_options
+
+    options = {o.label: o for o in uk_options()}
+    hotpicks = options["EuroMillions HotPicks pick-3"]
+    lotto5 = options["UK Lotto - 5"]
+    ratio = lotto5.cost_per_shot / hotpicks.cost_per_shot
+    assert ratio > 90
+    # ...and it is better value too, which is the surprising part.
+    assert hotpicks.expected_return > lotto5.expected_return
+
+
+def test_all_uk_options_are_negative_ev():
+    """No option in the library is a good bet in expectation."""
+    from lotterylab.compare import uk_options
+
+    for option in uk_options():
+        assert option.expected_return < 1.0
+
+
+def test_budget_outcome_matches_binomial():
+    from lotterylab.compare import best_for, budget_outcome
+
+    option = best_for(1_000, limit=1)[0]
+    result = budget_outcome(option, 10.0, 52)
+    lines = int(520 / option.ticket_price)
+    assert result["lines"] == lines
+    assert result["p_win"] == pytest.approx(
+        1 - (1 - option.probability) ** lines, rel=1e-9
+    )
+
+
+def test_hotpicks_options_are_flagged_unshared():
+    from lotterylab.compare import uk_options
+
+    for option in uk_options():
+        if "HotPicks" in option.label:
+            assert not option.shared
+
+
+@pytest.mark.parametrize("argv", [
+    ["compare"],
+    ["compare", "--target", "1000"],
+    ["compare", "--target", "10000", "--weekly", "5"],
+    ["compare", "--value"],
+])
+def test_compare_cli_runs(argv, capsys):
+    from lotterylab.cli import main
+
+    assert main(argv) == 0
+    assert capsys.readouterr().out.strip()
