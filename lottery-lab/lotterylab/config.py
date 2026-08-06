@@ -442,14 +442,14 @@ _UK_POWERBALL = LotteryConfig(
     tiers=(
         PrizeTier("5 + Powerball", 5, 1, 0.0, is_jackpot=True, is_parimutuel=True),
         PrizeTier("5", 5, 0, 1_000_000.0),
-        PrizeTier("4 + Powerball", 4, 1, 40_000.0, is_parimutuel=True),
-        PrizeTier("4", 4, 0, 80.0, is_parimutuel=True),
-        PrizeTier("3 + Powerball", 3, 1, 80.0, is_parimutuel=True),
-        PrizeTier("3", 3, 0, 6.0, is_parimutuel=True),
-        PrizeTier("2 + Powerball", 2, 1, 6.0, is_parimutuel=True),
+        PrizeTier("4 + Powerball", 4, 1, 33_000.0, is_parimutuel=True),
+        PrizeTier("4", 4, 0, 1_000.0, is_parimutuel=True),
+        PrizeTier("3 + Powerball", 3, 1, 500.0, is_parimutuel=True),
+        PrizeTier("3", 3, 0, 52.10, is_parimutuel=True),
+        PrizeTier("2 + Powerball", 2, 1, 30.80, is_parimutuel=True),
         PrizeTier("2", 2, 0, 8.0),
-        PrizeTier("1 + Powerball", 1, 1, 3.0, is_parimutuel=True),
-        PrizeTier("0 + Powerball", 0, 1, 3.0, is_parimutuel=True),
+        PrizeTier("1 + Powerball", 1, 1, 15.30, is_parimutuel=True),
+        PrizeTier("0 + Powerball", 0, 1, 11.90, is_parimutuel=True),
     ),
     notes=(
         "Launched in the UK on 21 July 2026 - a genuine National Lottery game, not a bet "
@@ -460,8 +460,17 @@ _UK_POWERBALL = LotteryConfig(
         "no lump-sum option, so a headline GBP 1bn is GBP 33m a year whose present value is "
         "nearer GBP 580m. (3) Only Match 5 (GBP 1,000,000) and the UK-exclusive Match 2 "
         "(GBP 8) are FIXED; every other tier is pari-mutuel and varies with UK sales, so the "
-        "figures here for those tiers are indicative only. "
-        "Jackpot odds 1 in 292,201,338; any prize about 1 in 13."
+        "figures here for those tiers are indicative only. Crucially the UK lower-tier "
+        "prize fund is ring-fenced and funded from UK SALES ALONE - only the jackpot is a "
+        "shared global pool - so US dollar prizes are NOT a valid proxy for the UK amounts, "
+        "which are far more generous (Match 4 pays around GBP 1,000, not the US $100). "
+        "The fixed GBP 1m Match 5 is also subject to undisclosed prize capping if an "
+        "unusually high number of players win it. "
+        "Jackpot odds 1 in 292,201,338. Overall odds compute to 1 in 13.18, though Allwyn "
+        "advertises the more conservative 1 in 14. "
+        "NOT TO BE CONFUSED with betting on Powerball through Lottoland or LottoGo: those "
+        "are bookmakers, you get no ticket, and their prize tables are their own - "
+        "Lottoland cuts the top three tiers by 38% and has no Match 2 tier at all."
     ),
 )
 

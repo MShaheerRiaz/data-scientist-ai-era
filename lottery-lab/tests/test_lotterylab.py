@@ -1351,7 +1351,13 @@ def test_uk_powerball_is_in_uk_games_and_priced_at_four_pounds():
 
 
 def test_uk_powerball_is_a_poor_route_to_a_four_figure_prize():
-    """It must not displace the recommendation - it is far worse per pound."""
+    """Worse than the recommendation, but by ~50x, not the 1,240x I first claimed.
+
+    UK lower-tier prizes are funded from UK sales alone and are far more
+    generous than the US table — Match 4 pays about GBP 1,000 against the
+    US game's $100 — so assuming the US prizes carried over understated
+    UK Powerball badly.
+    """
     from lotterylab.compare import best_for, uk_options
 
     best = best_for(1_000, limit=1)[0]
@@ -1360,4 +1366,19 @@ def test_uk_powerball_is_a_poor_route_to_a_four_figure_prize():
     pb = [o for o in uk_options()
           if o.game_key == "uk_powerball" and o.prize >= 1_000]
     assert pb, "UK Powerball should still appear as an option"
-    assert min(o.cost_per_shot for o in pb) > 100 * best.cost_per_shot
+    cheapest = min(o.cost_per_shot for o in pb)
+    assert 30 * best.cost_per_shot < cheapest < 80 * best.cost_per_shot
+
+    # It does, however, beat Lotto's Match 5 for a four-figure prize.
+    lotto5 = {o.label: o for o in uk_options()}["UK Lotto - 5"]
+    assert cheapest < lotto5.cost_per_shot
+
+
+def test_uk_powerball_lower_tiers_are_uk_funded_not_us_amounts():
+    """Match 4 pays around GBP 1,000, not the US game's $100 equivalent."""
+    cfg = PRESETS["uk_powerball"]
+    match4 = next(t for t in cfg.tiers if t.name == "4")
+    assert match4.payout == pytest.approx(1_000.0)
+    assert match4.is_parimutuel
+    # The US game's Match 4 is $100 - an order of magnitude apart.
+    assert PRESETS["powerball"].tiers[3].payout == 100.0

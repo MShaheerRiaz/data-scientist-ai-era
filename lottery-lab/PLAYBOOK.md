@@ -96,7 +96,7 @@ That is rare. Usually access and value trade off. Here they point the same way.
 | **EuroMillions main game** | Worst value of any main UK game at 34.9% RTP. You're paying £2.50 for jackpot odds of 1 in 139,838,160 that you will never hit. |
 | **EuroMillions HotPicks pick-5** | Worst value of all, 31.5% RTP. The £1m prize is bait. |
 | **Chasing big rollover jackpots** | Sales rise with the jackpot, so you split it more ways. EV *falls* past a peak. |
-| **UK Powerball** | £4 a line — four times Thunderball. Its jackpot is shared with US players *and* paid as a 30-year annuity, so a "£1bn" headline is £33m a year worth roughly £580m today. For a four-figure prize it is ~1,240× worse per pound than the pick above. |
+| **UK Powerball for a mid-size prize** | Not terrible — better than Lotto's Match 5 — but still **50× worse per pound** than the pick above. At £4 a line it is the priciest ticket on the counter. Fine if you want the big jackpot; wrong if you want £1,000. See §9. |
 | **Lotto HotPicks pick-5 / Set For Life top prize** | £834k–£2.5m per expected hit. Same fantasy as the jackpot, dressed differently. |
 
 ---
@@ -212,27 +212,62 @@ If you play, treat it as entertainment with a set budget. **£10/week gives you 
 
 ## 9. UK Powerball — the new game (launched 21 July 2026)
 
-This is a real National Lottery ticket, not lottery *betting*. Worth understanding before you buy, because three features make it very different from the headline.
+**This is a real National Lottery ticket**, licensed by the Gambling Commission to Allwyn on 21 July 2026. It is *not* the same thing as betting on Powerball through Lottoland or LottoGo — see the warning at the end of this section.
 
 | | |
 |---|---|
 | Structure | 5 from 69 + 1 Powerball from 26 |
 | Price | **£4.00 a line** — the most expensive UK ticket by far |
 | Jackpot odds | 1 in 292,201,338 |
-| Any prize | about 1 in 13 |
-| Jackpot | starts £12m, no cap, **shared with US players** |
-| Payment | **30-year annuity — there is no lump-sum option** |
+| Any prize | **1 in 13.18** (Allwyn advertises the more cautious "1 in 14") |
+| Jackpot | starts ~£12m, no cap, **shared with US and 48 other lotteries** |
+| Payment | **30-year annuity — no lump-sum option for UK winners** |
+| Draws | Tue / Thu / Sun, ~04:00 UK time (drawn in Florida) |
 
-**Three things the adverts won't lead with.**
+### The prize table
 
-1. **£4 a line.** Four Thunderball lines, or two and a half EuroMillions HotPicks lines, for the same money.
-2. **The jackpot is a 30-year annuity.** A £1bn headline is £33.3m a year for thirty years. Discounted at 4%, that is worth about **£580m today — 58% of the number on the poster.**
-3. **You share the jackpot with American players.** The US market is far larger than the UK one, so the crowd you would split with is enormous.
+| Match | Prize | Odds |
+|---|---|---|
+| 5 + Powerball | Jackpot, 30-yr annuity | 1 in 292,201,338 |
+| 5 | **£1,000,000 fixed** ⚠️ | 1 in 11,688,054 |
+| 4 + Powerball | ~£33,000 * | 1 in 913,129 |
+| **4** | **~£1,000** * | **1 in 36,525** |
+| 3 + Powerball | ~£500 * | 1 in 14,494 |
+| 3 | ~£52 * | 1 in 580 |
+| 2 + Powerball | ~£31 * | 1 in 701 |
+| **2** (UK-exclusive) | **£8 fixed** | 1 in 28 |
+| 1 + Powerball | ~£15 * | 1 in 92 |
+| Powerball only | ~£12 * | 1 in 38 |
 
-**What's genuinely good about it:** a UK-exclusive **Match 2** tier paying a fixed **£8** at 1 in 28, which the US game doesn't have. That's why the overall odds (1 in 13) beat US Powerball's 1 in 24.9. And **Match 5 pays a fixed £1,000,000** at 1 in 11,688,054.
+**\* pari-mutuel — these move every draw.** Only Match 5 and Match 2 are fixed.
 
-**For your stated goal it is still the wrong game.** Its best route to a four-figure prize is Match 4 + Powerball at roughly **£3.65m of tickets per expected win**, against **£2,940** for EuroMillions HotPicks pick-3 — about **1,240× worse per pound.**
+⚠️ Even the "fixed" £1m Match 5 is **subject to prize capping** if an unusually high number of players win it. The trigger and formula are not published.
 
-⚠️ Only **Match 5 (£1m)** and **Match 2 (£8)** are fixed. **Every other tier is pari-mutuel** and varies with UK ticket sales, so the mid-tier figures in this toolkit are indicative, not guaranteed. Check the current prize table before relying on them.
+### The thing that surprised me
 
-**Play it if** you want the biggest jackpot on the counter and treat the £4 as entertainment. **Don't play it** expecting a realistic four- or five-figure win.
+**UK lower-tier prizes are funded from UK sales alone** — only the jackpot is a shared global pool. So the US dollar prizes are *not* a guide to the UK amounts, and the UK ones are far more generous: **Match 4 pays around £1,000, where the US game pays $100.** My first pass at this got it wrong by assuming the US table carried over.
+
+That makes UK Powerball a **better route to a four-figure prize than Lotto's Match 5** — £146,101 per expected win versus £288,830.
+
+### But it is still not your best option
+
+**£146,101 per expected £1,000 win, against £2,940 for EuroMillions HotPicks pick-3 — about 50× worse per pound.**
+
+### Three things the adverts won't lead with
+
+1. **£4 a line.** Four Thunderball lines for the same money.
+2. **The jackpot is a 30-year annuity with no lump sum.** A £1bn headline is £33.3m a year; discounted at 4% that is worth about **£580m today**.
+3. **You share the jackpot with US players** across 49 lotteries. The splitting pool is enormous.
+
+Also note the UK and US advertised jackpots are **not comparable** — the UK figure is post-tax in GBP, the US one pre-tax in USD.
+
+### ⚠️ Powerball ticket vs Powerball *bet* — check what you are buying
+
+Lottoland and LottoGo also advertise "Powerball" in the UK. **Those are bookmakers.** You get no lottery ticket; you place a bet, and the prize table is theirs, not Powerball's:
+
+- **Lottoland** charges £3.50 a bet and **cuts the top three prize tiers by 38%**. It has **no Match 2 tier** at all. A lump sum, if it offers one, is **60% of the annuity value**, and *Lottoland* chooses which you get — not you.
+- **LottoGo** (Annexio) is also betting, despite sometimes being described as a courier.
+
+Both are UK Gambling Commission licensed, so they are legal and regulated — but as *betting* operators. If you want the actual game, buy it from The National Lottery.
+
+**Play it if** you want the biggest jackpot available and treat £4 as entertainment. **Don't play it** expecting a realistic four-figure win — the pick in §1 is 50× more efficient for that.
