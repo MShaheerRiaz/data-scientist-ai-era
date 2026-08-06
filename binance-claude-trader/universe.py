@@ -32,6 +32,10 @@ def select_universe(client: BinanceSpot, cfg: Config) -> list[dict]:
             continue
         if symbol not in tradable:
             continue
+        # endswith() alone can mismatch (a symbol ending in "USDT" whose real
+        # quote asset differs) — verify against the exchange's own metadata.
+        if tradable[symbol].quote_asset != cfg.quote_asset:
+            continue
 
         quote_volume = float(t.get("quoteVolume", 0))
         if quote_volume < cfg.min_quote_volume:

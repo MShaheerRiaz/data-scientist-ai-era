@@ -117,7 +117,9 @@ class CatalystScanner:
         refresh_seconds: int = 3600,
         max_searches: int = 6,
     ):
-        self._client = anthropic.Anthropic(api_key=api_key)
+        # Same timeout rationale as the decision provider: a hung news fetch
+        # must not consume the trading window. News is optional context.
+        self._client = anthropic.Anthropic(api_key=api_key, timeout=300.0)
         self._model = model
         self.refresh_seconds = refresh_seconds
         self._max_searches = max_searches
@@ -138,29 +140,45 @@ class CatalystScanner:
             )
 
         try:
-            response = self._client.messages.create(
-                model=self._model,
-                max_tokens=4000,
-                system=NEWS_SYSTEM_PROMPT,
-                tools=[
-                    {
-                        "type": "web_search_20260209",
-                        "name": "web_search",
-                        "max_uses": self._max_searches,
-                    }
-                ],
-                messages=[
-                    {
-                        "role": "user",
-                        "content": (
-                            "Give me the current crypto market brief for "
-                            "automated spot trading." + focus
-                        ),
-                    }
-                ],
-            )
+            conversation: list[dict] = [
+                {
+                    "role": "user",
+                    "content": (
+                        "Give me the current crypto market brief for "
+                        "automated spot trading." + focus
+                    ),
+                }
+            ]
 
-            if response.stop_reason == "refusal":
+            # Web search runs a server-side loop that can stop with
+            # stop_reason == "pause_turn" mid-way. Re-sending the conversation
+            # with the assistant turn appended resumes it; without this loop a
+            # paused turn would silently return a half-finished brief.
+            response = None
+            for _ in range(4):
+                response = self._client.messages.create(
+                    model=self._model,
+                    # Thinking is on by default on Claude Opus 5 and shares
+                    # max_tokens with the searches' synthesis; 8000 gives a
+                    # sub-250-word brief plenty of headroom.
+                    max_tokens=8000,
+                    system=NEWS_SYSTEM_PROMPT,
+                    tools=[
+                        {
+                            "type": "web_search_20260209",
+                            "name": "web_search",
+                            "max_uses": self._max_searches,
+                        }
+                    ],
+                    messages=conversation,
+                )
+                if response.stop_reason != "pause_turn":
+                    break
+                conversation = conversation + [
+                    {"role": "assistant", "content": response.content}
+                ]
+
+            if response is None or response.stop_reason == "refusal":
                 self.context = MarketContext(
                     brief="", fetched_at=time.time(), error="model declined"
                 )

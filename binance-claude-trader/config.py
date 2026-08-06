@@ -6,6 +6,33 @@ import os
 from dataclasses import dataclass, field
 
 
+def _load_dotenv(path: str = ".env") -> None:
+    """Load KEY=VALUE pairs from a .env file into the environment.
+
+    Exists because the documented setup flow is `cp .env.example .env` and then
+    `python main.py` — without this, that file was silently ignored and the bot
+    only saw variables exported in the shell. Deliberately dependency-free.
+
+    Real environment variables win: a key already present in os.environ is
+    never overridden, so `DRY_RUN=false python main.py` still beats the file.
+    """
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except OSError as exc:
+        print(f"[config] could not read {path}: {exc}")
+
+
 def _env(name: str, default: str | None = None, *, required: bool = False) -> str:
     value = os.environ.get(name, default)
     if required and not value:
@@ -57,6 +84,13 @@ BINANCE_HOSTS = {
     True: "https://testnet.binance.vision",
     False: "https://api.binance.com",
 }
+
+# Candle intervals the loop knows how to schedule (must match Binance kline
+# intervals AND main._INTERVAL_SECONDS). An unknown value would silently fall
+# back to a 15m sleep while Binance rejects every klines request.
+SUPPORTED_INTERVALS = ("1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "1d")
+
+VALID_EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
 
 @dataclass(frozen=True)
@@ -154,8 +188,29 @@ class Config:
 
     @classmethod
     def from_env(cls) -> "Config":
+        _load_dotenv()
+
         testnet = _env_bool("BINANCE_TESTNET", True)
         dry_run = _env_bool("DRY_RUN", True)
+
+        # Bad values here would not fail loudly — a wrong interval means every
+        # klines call 400s while the loop sleeps a default 15m, and a wrong
+        # effort means every decision call 400s. Fall back with a warning.
+        interval = _env("CANDLE_INTERVAL", "15m")
+        if interval not in SUPPORTED_INTERVALS:
+            print(
+                f"[config] CANDLE_INTERVAL={interval!r} is not supported "
+                f"({', '.join(SUPPORTED_INTERVALS)}); falling back to 15m."
+            )
+            interval = "15m"
+
+        effort = _env("CLAUDE_EFFORT", "medium")
+        if effort not in VALID_EFFORTS:
+            print(
+                f"[config] CLAUDE_EFFORT={effort!r} is not valid "
+                f"({', '.join(VALID_EFFORTS)}); falling back to medium."
+            )
+            effort = "medium"
 
         # Paper trading only touches public endpoints (klines, ticker prices),
         # which need no authentication. Requiring keys there would force you to
@@ -166,8 +221,8 @@ class Config:
             testnet=testnet,
             anthropic_key=_env("ANTHROPIC_API_KEY", required=True),
             model=_env("CLAUDE_MODEL", "claude-opus-5"),
-            effort=_env("CLAUDE_EFFORT", "medium"),
-            interval=_env("CANDLE_INTERVAL", "15m"),
+            effort=effort,
+            interval=interval,
             candles_per_symbol=_env_int("CANDLES_PER_SYMBOL", 120),
             universe_size=_env_int("UNIVERSE_SIZE", 12),
             min_quote_volume=_env_float("MIN_QUOTE_VOLUME", 20_000_000.0),

@@ -47,19 +47,25 @@ size, the model would have an incentive to inflate it.
 cd binance-claude-trader
 pip install -r requirements.txt
 cp .env.example .env
-# fill in .env — see the comments in that file
+# fill in .env — see the comments in that file; it is loaded automatically
 python main.py
 ```
 
 Run the tests before trusting anything (no pytest needed):
 
 ```bash
-python tests/test_risk.py     # 19 - the risk gate
-python tests/test_config.py   # 11 - settings coherence, safe defaults
-python tests/test_paper.py    #  9 - paper equity and simulated PnL
-python tests/test_lessons.py  # 20 - lesson dedup, volume anomalies
-python tests/test_quant.py    # 28 - expectancy, Kelly, ruin, leverage
+python tests/test_risk.py         # 19 - the risk gate
+python tests/test_config.py       # 15 - settings, .env loading, safe defaults
+python tests/test_paper.py        #  9 - paper equity and simulated PnL
+python tests/test_lessons.py      # 20 - lesson dedup, volume anomalies
+python tests/test_quant.py        # 28 - expectancy, Kelly, ruin, leverage
+python tests/test_integration.py  #  9 - the full cycle, stubbed exchange+model
 ```
+
+The integration file matters most: it drives the real `run_cycle` through
+open → stop exit → review → lesson → next decision, model-instructed close,
+the kill switch, entry-drift skips, and a process restart — with a stub
+exchange that raises if paper mode ever touches the real account balance.
 
 ### Getting testnet keys
 
@@ -113,6 +119,12 @@ cannot drain the account even if the server is compromised.
 ---
 
 ## Things you should know before running this
+
+**Stale decisions are skipped, not chased.** The model prices its decision
+off the last closed candle; if the market has already run past half the stop
+distance from the intended entry — or through the stop or target outright —
+the executor refuses the trade and journals a `skip` instead of buying bad
+slippage. This applies in paper and live mode alike.
 
 **Stops are enforced by this process, not by the exchange.** There is no
 resting stop order on Binance. If the bot is not running, your stops are not

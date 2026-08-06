@@ -181,6 +181,17 @@ class BinanceSpot:
             raise BinanceError(400, {"msg": f"{symbol} is not a tradable spot symbol"})
         return self._filters[symbol]
 
+    def tradable(self) -> set[str]:
+        """Cached set of tradable spot symbols.
+
+        load_filters() re-downloads the full exchangeInfo catalogue on every
+        call; use this accessor when the cached snapshot from earlier in the
+        cycle is what you want.
+        """
+        if not self._filters:
+            self.load_filters()
+        return set(self._filters)
+
     # ---- account ---------------------------------------------------------
 
     def account(self) -> dict:

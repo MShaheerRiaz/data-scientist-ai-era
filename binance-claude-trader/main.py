@@ -273,7 +273,9 @@ def run_cycle(
         positions=positions,
         day=day,
         denylist=cfg.symbol_denylist,
-        tradable_symbols=set(client.load_filters().keys()),
+        # Cached — select_universe already refreshed the catalogue this cycle,
+        # and load_filters() would re-download the whole exchangeInfo payload.
+        tradable_symbols=client.tradable(),
     )
     journal.decision(decision, verdict.reason, verdict.approved, usage, equity)
 

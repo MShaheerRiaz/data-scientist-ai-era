@@ -27,7 +27,11 @@ from llm.base import ProviderRefusal
 
 class AnthropicProvider:
     def __init__(self, api_key: str, model: str = "claude-opus-5", effort: str = "medium"):
-        self._client = anthropic.Anthropic(api_key=api_key)
+        # Explicit timeout: the SDK default is 10 minutes, most of a 15m bar.
+        # A hung call should fail this cycle and let the next bar try again,
+        # not silently consume the trading window. The SDK retries 429/5xx
+        # twice on its own.
+        self._client = anthropic.Anthropic(api_key=api_key, timeout=300.0)
         self._model = model
         self._effort = effort
 
@@ -39,7 +43,10 @@ class AnthropicProvider:
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         response = self._client.messages.create(
             model=self._model,
-            max_tokens=8000,
+            # Thinking is on by default on Claude Opus 5 and counts against
+            # max_tokens alongside the response text. Too tight a cap truncates
+            # the JSON mid-decision; 16000 leaves comfortable headroom.
+            max_tokens=16000,
             # Stable prefix, cached. Nothing volatile (no timestamps, no symbol
             # list) may be interpolated here or the cache is invalidated every
             # call and the breakpoint becomes pure cost.
@@ -79,6 +86,14 @@ class AnthropicProvider:
                 f"model declined: {getattr(response.stop_details, 'category', None)}"
             )
 
+        if response.stop_reason == "max_tokens":
+            # Truncated output means incomplete JSON. Fail with a clear reason
+            # instead of letting json.loads produce a confusing parse error.
+            raise RuntimeError(
+                "decision truncated at max_tokens — thinking plus response "
+                "exceeded the cap; raise max_tokens in AnthropicProvider.decide"
+            )
+
         text = next((b.text for b in response.content if b.type == "text"), None)
         if not text:
             raise ProviderRefusal("model returned no text block")
@@ -101,7 +116,9 @@ class AnthropicProvider:
         """
         response = self._client.messages.create(
             model=self._model,
-            max_tokens=4000,
+            # Same headroom logic as decide(): thinking shares the cap, and
+            # reviews run at high effort, which thinks more.
+            max_tokens=16000,
             system=system_prompt,
             output_config={
                 # Reviews are not latency-sensitive and their whole value is
@@ -122,6 +139,9 @@ class AnthropicProvider:
 
         if response.stop_reason == "refusal":
             raise ProviderRefusal("model declined to review the trade")
+
+        if response.stop_reason == "max_tokens":
+            raise RuntimeError("review truncated at max_tokens — incomplete JSON")
 
         text = next((b.text for b in response.content if b.type == "text"), None)
         if not text:

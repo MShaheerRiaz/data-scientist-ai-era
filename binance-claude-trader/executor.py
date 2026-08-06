@@ -30,8 +30,47 @@ class Executor:
         symbol = decision["symbol"].upper()
         quote_amount = verdict.quote_amount
 
-        if self.dry_run:
+        # Entry drift guard. The model priced this decision off the last closed
+        # candle; by the time we act, the market may have moved. Two failure
+        # modes are caught here:
+        #   1. Price already at/through the stop or target — the trade is
+        #      instantly dead or already done; buying now is pure slippage.
+        #   2. Price drifted far from the intended entry — position size was
+        #      computed against the decision's stop distance, so a large drift
+        #      silently changes the risk actually taken.
+        entry = float(decision["entry"])
+        stop = float(decision["stop"])
+        target = float(decision["target"])
+        try:
             price = self.client.price(symbol)
+        except BinanceError as exc:
+            self.journal.error("open_long", f"no price for {symbol}: {exc}")
+            return None
+
+        if price <= stop or price >= target:
+            self.journal.write(
+                "skip",
+                {"symbol": symbol, "reason": "price_beyond_levels",
+                 "price": price, "entry": entry, "stop": stop, "target": target},
+            )
+            print(f"[executor] skip {symbol}: price {price} already beyond stop/target")
+            return None
+
+        stop_distance = entry - stop
+        if abs(price - entry) > 0.5 * stop_distance:
+            self.journal.write(
+                "skip",
+                {"symbol": symbol, "reason": "entry_drift",
+                 "price": price, "entry": entry,
+                 "drift_pct": round(abs(price - entry) / entry * 100, 3)},
+            )
+            print(
+                f"[executor] skip {symbol}: price {price} drifted more than half "
+                f"the stop distance from intended entry {entry}"
+            )
+            return None
+
+        if self.dry_run:
             qty = quote_amount / price
             self.journal.fill(
                 "buy",
