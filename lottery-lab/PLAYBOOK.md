@@ -271,3 +271,27 @@ Lottoland and LottoGo also advertise "Powerball" in the UK. **Those are bookmake
 Both are UK Gambling Commission licensed, so they are legal and regulated — but as *betting* operators. If you want the actual game, buy it from The National Lottery.
 
 **Play it if** you want the biggest jackpot available and treat £4 as entertainment. **Don't play it** expecting a realistic four-figure win — the pick in §1 is 50× more efficient for that.
+
+
+---
+
+## 10. In simple words
+
+**Want a realistic chance of winning something worthwhile?**
+Play **EuroMillions HotPicks, pick 3 numbers**. £1.50. Match all three and you win **£1,500**. At £10 a week for a year that is about a **1 in 6 chance**. Nothing else on the counter is close.
+
+**Want to dream about a life-changing amount?**
+Play **UK Powerball**. £4, jackpot can pass £1 billion. But the odds are 1 in 292 million, the money comes over 30 years rather than in one go, and you share it with America. Treat the £4 as the price of the daydream.
+
+**Does it matter which numbers I pick?**
+On **HotPicks, Thunderball and Set For Life — no, not at all.** Those prizes are fixed, so you get the same money however many others picked the same numbers. Birthdays are fine.
+On **Lotto, EuroMillions and Powerball — a little.** Those jackpots get split between winners, so picking numbers others avoid means fewer people to share with. It does not make you likelier to win, only likelier to get more if you do.
+
+**Do last week's numbers help?**
+No. Not slightly. The balls have no memory, and every "hot" and "due" system failed when tested properly. You do not need to send me past results.
+
+**Why does someone win a million nearly every week?**
+Because it is built to happen. EuroMillions guarantees two UK millionaires weekly by raffle, no matching needed — about 6 or 7 people in total. That is the crowd being enormous, not your odds being good.
+
+**The one thing to remember**
+Every game here loses money on average. What this changes is that you stop paying £288,830 for a shot at £1,750 when £2,940 buys a shot at £1,500 on the same counter. Set a budget and enjoy it.

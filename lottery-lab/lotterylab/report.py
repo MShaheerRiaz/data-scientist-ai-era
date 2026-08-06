@@ -18,7 +18,7 @@ import math
 from pathlib import Path
 from typing import Optional, Sequence
 
-from .combinatorics import jackpot_probability, odds_string
+from .combinatorics import all_tier_probabilities, jackpot_probability, odds_string
 from .compare import best_for, budget_outcome, uk_options
 from .config import HOTPICKS, PRESETS, UK_GAMES
 from .fairness import power_analysis
@@ -806,6 +806,222 @@ def _page_reference(pdf, plt):
 # ---------------------------------------------------------------------------
 
 
+def _page_ranked(pdf, plt):
+    """Every option ranked, in plain language."""
+    fig = plt.figure(figsize=(8.27, 11.69))
+    _page_header(fig, "The games, ranked",
+                 "Best first. Ranked by what it costs you, on average, to actually\n"
+                 "win the kind of prize you said you care about.", "1")
+
+    options = {o.label: o for o in uk_options()}
+    hp_l = HOTPICKS["lotto_hotpicks"]
+    hp_e = HOTPICKS["euromillions_hotpicks"]
+
+    rows = [
+        ("1st", "EuroMillions HotPicks", "pick 3 numbers", "£1.50", "1 in 1,960", "£1,500",
+         "The best bet on the counter. Match all 3 and you win.", BLUE),
+        ("2nd", "Lotto HotPicks", "pick 4 numbers", "£1.00", "1 in 30,342", "£13,000",
+         "Cheapest line, and the best route to five figures.", INK2),
+        ("3rd", "EuroMillions HotPicks", "pick 4 numbers", "£1.50", "1 in 46,060", "£30,000",
+         "Bigger prize, longer odds. Best route to £20,000+.", INK2),
+        ("4th", "UK Powerball", "Match 4 of 5", "£4.00", "1 in 36,525", "~£1,000",
+         "New game. Beats Lotto, but 50x worse than 1st.", INK2),
+        ("5th", "Lotto", "Match 5 of 6", "£2.00", "1 in 144,415", "£1,750",
+         "The one most people buy. Nearly 100x worse than 1st.", MUTED),
+    ]
+
+    y = 0.845
+    for rank, game, how, cost, odds, prize, why, colour in rows:
+        emphasised = rank == "1st"
+        if emphasised:
+            fig.patches.append(plt.Rectangle((0.055, y - 0.093), 0.89, 0.098,
+                                             transform=fig.transFigure,
+                                             facecolor="#eef4fd", edgecolor=BLUE,
+                                             linewidth=1.0, zorder=0))
+        fig.text(0.075, y, rank, fontsize=15, fontweight="bold", color=colour, va="top")
+        fig.text(0.145, y, game, fontsize=13.5, fontweight="bold",
+                 color=INK if emphasised else INK2, va="top")
+        fig.text(0.145, y - 0.026, how, fontsize=10, color=INK2, va="top")
+        fig.text(0.145, y - 0.050, why, fontsize=9, color=MUTED, va="top")
+
+        for dx, (label, value) in enumerate([("cost", cost), ("odds", odds), ("prize", prize)]):
+            x = 0.585 + dx * 0.125
+            fig.text(x, y + 0.002, label.upper(), fontsize=7, color=MUTED, va="top")
+            fig.text(x, y - 0.020, value, fontsize=11,
+                     fontweight="bold" if emphasised else "normal",
+                     color=BLUE if emphasised else INK2, va="top")
+        y -= 0.115
+
+    fig.text(0.06, 0.245, "Two other ways to pick a game", fontsize=12,
+             fontweight="bold", color=INK, va="top")
+    extras = [
+        ("Want your money to last longest?", "EuroMillions HotPicks pick 1 number — £1.50 to win "
+         "£10 at 1 in 10.", "67p of every £1 comes back, the best of any UK option."),
+        ("Want the biggest possible jackpot?", "UK Powerball — £4.00, jackpot 1 in 292,201,338, "
+         "starts around £12 million.", "See page 7. Read the three warnings before you buy it."),
+    ]
+    yy = 0.212
+    for title, line1, line2 in extras:
+        fig.text(0.06, yy, title, fontsize=10.5, fontweight="bold", color=INK2, va="top")
+        fig.text(0.06, yy - 0.024, line1, fontsize=9.5, color=INK2, va="top")
+        fig.text(0.06, yy - 0.045, line2, fontsize=9, color=MUTED, va="top")
+        yy -= 0.082
+
+    _footer(fig)
+    pdf.savefig(fig)
+    plt.close(fig)
+
+
+def _page_powerball(pdf, plt):
+    """UK Powerball in full - new game, and the one most likely to mislead."""
+    cfg = PRESETS["uk_powerball"]
+    fig = plt.figure(figsize=(8.27, 11.69))
+    _page_header(fig, "UK Powerball — the new game",
+                 "Launched 21 July 2026. You can buy it at the till like any other\n"
+                 "ticket. It is a real lottery ticket, not a bet with a bookmaker.", "6")
+
+    facts = [
+        ("Price", "£4.00 a line"),
+        ("Pick", "5 numbers from 69, plus 1 Powerball from 26"),
+        ("Jackpot odds", "1 in 292,201,338"),
+        ("Any prize", "1 in 13"),
+        ("Jackpot", "starts about £12 million, no cap"),
+        ("Paid", "over 30 years — there is no lump sum"),
+        ("Draws", "Tuesday, Thursday and Sunday"),
+    ]
+    y = 0.845
+    for label, value in facts:
+        fig.text(0.07, y, label, fontsize=9.5, color=MUTED, va="top")
+        fig.text(0.27, y, value, fontsize=10.5, color=INK2, va="top")
+        y -= 0.026
+
+    fig.text(0.06, 0.635, "What each match pays", fontsize=12, fontweight="bold",
+             color=INK, va="top")
+    fig.text(0.06, 0.612, "Only two prizes are fixed. The rest change every draw with "
+                          "ticket sales.", fontsize=9, color=MUTED, va="top")
+
+    fig.text(0.07, 0.585, "MATCH", fontsize=7.5, color=MUTED, va="top")
+    fig.text(0.36, 0.585, "PRIZE", fontsize=7.5, color=MUTED, va="top")
+    fig.text(0.56, 0.585, "ODDS", fontsize=7.5, color=MUTED, va="top")
+    fig.text(0.80, 0.585, "FIXED?", fontsize=7.5, color=MUTED, va="top")
+    fig.add_artist(plt.Line2D([0.06, 0.94], [0.578, 0.578], color=AXIS,
+                              linewidth=0.9, transform=fig.transFigure))
+
+    y = 0.562
+    for tier, prob in all_tier_probabilities(cfg):
+        if tier.is_jackpot:
+            prize, fixed = "the jackpot", "shared"
+        elif tier.is_parimutuel:
+            prize, fixed = f"about £{tier.payout:,.0f}", "varies"
+        else:
+            prize, fixed = f"£{tier.payout:,.0f}", "FIXED"
+        highlight = tier.name in ("5", "2", "4")
+        colour = BLUE if highlight else INK2
+        fig.text(0.07, y, tier.name, fontsize=9.5, color=colour,
+                 fontweight="bold" if highlight else "normal", va="top")
+        fig.text(0.36, y, prize, fontsize=9.5, color=colour, va="top")
+        fig.text(0.56, y, odds_string(prob), fontsize=9.5, color=colour, va="top")
+        fig.text(0.80, y, fixed, fontsize=8.5,
+                 color=GOOD if fixed == "FIXED" else MUTED, va="top")
+        y -= 0.0222
+
+    fig.patches.append(plt.Rectangle((0.06, 0.150), 0.88, 0.168, transform=fig.transFigure,
+                                     facecolor="#fdf0f0", edgecolor=CRITICAL,
+                                     linewidth=1.0, zorder=0))
+    fig.text(0.09, 0.301, "THREE THINGS THE ADVERTS DO NOT LEAD WITH", fontsize=9,
+             color=CRITICAL, fontweight="bold", va="top")
+    warnings = [
+        ("1.  It costs £4 a line.", "That is four Thunderball lines for the same money."),
+        ("2.  There is no lump sum.", "A £1 billion jackpot is £33m a year for 30 years — "
+                                      "worth about £580m today."),
+        ("3.  You share the jackpot with America.", "49 lotteries feed the same pot, so the "
+                                                    "crowd you split with is huge."),
+    ]
+    yy = 0.274
+    for bold, rest in warnings:
+        fig.text(0.09, yy, bold, fontsize=9.5, fontweight="bold", color=INK, va="top")
+        fig.text(0.09, yy - 0.019, rest, fontsize=9, color=INK2, va="top")
+        yy -= 0.042
+
+    fig.text(0.06, 0.128, "The good bit, and the honest bit", fontsize=11,
+             fontweight="bold", color=INK, va="top")
+    fig.text(0.06, 0.104,
+             "Good: a UK-only Match 2 prize of £8 at 1 in 28 that the US game does not have.\n"
+             "Honest: a £1,000 win costs £146,101 of tickets, against £2,940 on the first-placed\n"
+             "pick. Buy it for the jackpot, not for a realistic win.",
+             fontsize=9.5, color=INK2, va="top", linespacing=1.6)
+    _footer(fig)
+    pdf.savefig(fig)
+    plt.close(fig)
+
+
+def _page_simple(pdf, plt):
+    """The whole thing in plain words."""
+    fig = plt.figure(figsize=(8.27, 11.69))
+    _page_header(fig, "In simple words",
+                 "The whole report, with no maths.", "10")
+
+    blocks = [
+        ("If you want a realistic chance of winning something worthwhile",
+         ["Play EuroMillions HotPicks and pick 3 numbers. It costs £1.50.",
+          "You win £1,500 if all three of your numbers come up.",
+          "",
+          "Spending £10 a week for a year gives you about a 1 in 6 chance of",
+          "winning that £1,500. No other game on the counter comes close."], BLUE),
+
+        ("If you want to dream about a life-changing amount",
+         ["Play UK Powerball. It costs £4 and the jackpot can pass £1 billion.",
+          "",
+          "But be clear with yourself: the odds are 1 in 292 million, the money",
+          "comes over 30 years not in one go, and you share it with America.",
+          "Treat the £4 as the price of the daydream, not an investment."], INK2),
+
+        ("Does it matter which numbers I pick?",
+         ["On HotPicks, Thunderball and Set For Life — no. Not at all. Those",
+          "prizes are fixed, so you get the same money however many other",
+          "people picked the same numbers. Use birthdays if you like.",
+          "",
+          "On Lotto, EuroMillions and Powerball — a little. Those jackpots are",
+          "split between the winners, so picking numbers others avoid means",
+          "fewer people to share with. It does not make you more likely to",
+          "win — only likely to get more if you do."], INK2),
+
+        ("Do last week's winning numbers help?",
+         ["No. Not even slightly. The balls have no memory. I tested every",
+          "'hot number' and 'due number' system properly and they all failed.",
+          "You do not need to send me any past results."], INK2),
+
+        ("Why does someone win a million nearly every week?",
+         ["Because it is built to. EuroMillions guarantees two UK millionaires",
+          "every week by raffle, with no matching needed — about 6 or 7 people",
+          "become millionaires weekly. That is the crowd being enormous, not",
+          "your odds being good."], INK2),
+    ]
+
+    y = 0.878
+    for title, lines, colour in blocks:
+        fig.text(0.06, y, title, fontsize=11.5, fontweight="bold", color=colour, va="top")
+        yy = y - 0.029
+        for line in lines:
+            fig.text(0.06, yy, line, fontsize=9.8, color=INK2, va="top")
+            yy -= 0.0193
+        y = yy - 0.017
+
+    fig.patches.append(plt.Rectangle((0.06, 0.045), 0.88, 0.098, transform=fig.transFigure,
+                                     facecolor="#f2f1ec", edgecolor=AXIS,
+                                     linewidth=0.8, zorder=0))
+    fig.text(0.09, 0.128, "The one thing to remember", fontsize=10.5,
+             fontweight="bold", color=INK, va="top")
+    fig.text(0.09, 0.104,
+             "Every game here loses money on average. Nothing in this report changes that.\n"
+             "What it does is stop you paying £288,830 for a shot at £1,750 when £2,940\n"
+             "buys a shot at £1,500 on the same counter. Set a budget, and enjoy it.",
+             fontsize=9.5, color=INK2, va="top", linespacing=1.7)
+    _footer(fig, "lotterylab · PLAYBOOK.md is the living version of this document")
+    pdf.savefig(fig)
+    plt.close(fig)
+
+
 def build_report(output: str | Path = "uk-lottery-report.pdf") -> Path:
     """Build the illustrated PDF summary."""
     _style()
@@ -817,14 +1033,17 @@ def build_report(output: str | Path = "uk-lottery-report.pdf") -> Path:
 
     with PdfPages(output) as pdf:
         _page_cover(pdf, plt)
+        _page_ranked(pdf, plt)
         _page_cost_per_win(pdf, plt)
         _page_budget(pdf, plt)
         _page_value(pdf, plt)
         _page_tradeoff(pdf, plt)
+        _page_powerball(pdf, plt)
         _page_scale(pdf, plt)
         _page_millionaires(pdf, plt)
         _page_myths(pdf, plt)
         _page_reference(pdf, plt)
+        _page_simple(pdf, plt)
 
         info = pdf.infodict()
         info["Title"] = "UK Lottery - What the numbers actually say"

@@ -1304,7 +1304,7 @@ def test_report_pages_all_render():
 
     with tempfile.TemporaryDirectory() as tmp:
         doc = pymupdf.open(build_report(f"{tmp}/r.pdf"))
-        assert doc.page_count == 9
+        assert doc.page_count == 12
         for page in doc:
             assert 590 < page.rect.width < 600      # A4 portrait
             assert 835 < page.rect.height < 848
