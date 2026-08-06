@@ -26,6 +26,21 @@ from .data import load_csv, save_csv, synthesize
 def _load_history(args: argparse.Namespace):
     """Load a draw history from CSV, or synthesise one for demonstration."""
     config = get_preset(args.game)
+    if getattr(args, "uk_csv", None):
+        from .uk_data import load as uk_load
+
+        history = uk_load(args.uk_csv, args.game, config)
+        if history.warnings:
+            print(f"  note: {len(history.warnings)} warning(s) while loading:",
+                  file=sys.stderr)
+            for w in history.warnings[:10]:
+                print(f"    - {w}", file=sys.stderr)
+        if not history.draws:
+            raise SystemExit(
+                "no usable draws were loaded - is this the right game for this file?"
+            )
+        print(f"  [loaded {history.n_draws:,} real draws from {args.uk_csv}]\n")
+        return history
     if getattr(args, "csv", None):
         history = load_csv(args.csv, config)
         if history.warnings:
@@ -47,16 +62,91 @@ def _load_history(args: argparse.Namespace):
 
 def cmd_games(args: argparse.Namespace) -> int:
     """List the built-in game presets and their odds."""
-    print("DRAW GAMES")
-    print(f"  {'key':<16}{'game':<26}{'combinations':>16}{'jackpot odds':>24}")
-    for key in list_presets():
+    from .config import UK_GAMES
+
+    print("UK NATIONAL LOTTERY")
+    print(f"  {'key':<16}{'game':<24}{'price':>8}{'top prize odds':>20}{'any prize':>12}")
+    for key in UK_GAMES:
         cfg = PRESETS[key]
-        print(f"  {key:<16}{cfg.name:<26}{total_combinations(cfg):>16,}"
-              f"{odds_string(jackpot_probability(cfg)):>24}")
+        print(f"  {key:<16}{cfg.name:<24}{cfg.ticket_price:>8.2f}"
+              f"{odds_string(jackpot_probability(cfg)):>20}"
+              f"{odds_string(any_prize_probability(cfg)):>12}")
+    print("\n  Note: Powerball is a US game and is not sold in the UK.")
+
+    print("\nOTHER DRAW GAMES")
+    print(f"  {'key':<16}{'game':<24}{'price':>8}{'top prize odds':>20}")
+    for key in list_presets():
+        if key in UK_GAMES:
+            continue
+        cfg = PRESETS[key]
+        print(f"  {key:<16}{cfg.name:<24}{cfg.ticket_price:>8.2f}"
+              f"{odds_string(jackpot_probability(cfg)):>20}")
+
     print("\nDIGIT GAMES")
     print(f"  {'key':<16}{'game':<34}{'edge':>8}")
     for key, cfg in sorted(DIGIT_PRESETS.items()):
         print(f"  {key:<16}{cfg.name:<34}{cfg.house_edge:>8.1%}")
+    return 0
+
+
+def cmd_dip(args: argparse.Namespace) -> int:
+    """Generate lines - the Lucky Dip generator."""
+    from .luckydip import lucky_dip
+
+    cfg = get_preset(args.game)
+    slip = lucky_dip(
+        cfg,
+        args.lines,
+        mode=args.mode,
+        salt=args.salt,
+        exclude=args.exclude,
+        include=args.include,
+    )
+    print(slip.to_text())
+    return 0
+
+
+def cmd_fetch(args: argparse.Namespace) -> int:
+    """Download UK National Lottery draw history."""
+    from .uk_data import UK_SOURCES, download_all, load, source_url
+
+    if args.urls:
+        print("Official National Lottery draw-history downloads (free, no key needed):\n")
+        for game in UK_SOURCES:
+            print(f"  {game:<15}{source_url(game)}")
+        print("\nOpen these in a browser to save the CSV, then analyse with:")
+        print("  python -m lotterylab audit uk_lotto --uk-csv lotto.csv")
+        return 0
+
+    directory = Path(args.directory)
+    print(f"Downloading UK draw history to {directory}/ ...\n")
+    results = download_all(directory, timeout=args.timeout)
+    for result in results:
+        print(result)
+
+    failures = [r for r in results if not r.ok]
+    if failures:
+        print("\nSome downloads failed. This is usually a blocked network rather than")
+        print("a problem with the site. Download them by hand instead:\n")
+        for result in failures:
+            print(f"  {result.url}")
+        print("\nthen pass the saved file with --uk-csv.")
+        return 1
+
+    print("\nDone. Analyse with:")
+    print(f"  python -m lotterylab audit uk_lotto --uk-csv {directory}/uk_lotto.csv")
+    return 0
+
+
+def cmd_winners(args: argparse.Namespace) -> int:
+    """Explain why somebody wins a large prize almost every week."""
+    from .winners import expected_winners, uk_millionaire_summary
+
+    if args.game:
+        cfg = get_preset(args.game)
+        print(expected_winners(cfg, args.lines_sold, game_key=args.game).to_text())
+        return 0
+    print(uk_millionaire_summary(your_lines_per_week=args.my_lines))
     return 0
 
 
@@ -325,9 +415,36 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("game", nargs="?", default="canada_649")
     p.set_defaults(func=cmd_odds)
 
+    p = sub.add_parser("dip", help="generate lines (the Lucky Dip generator)")
+    p.add_argument("game", nargs="?", default="uk_lotto")
+    p.add_argument("-n", "--lines", type=int, default=1)
+    p.add_argument("--mode", choices=["fair", "unpopular"], default="fair",
+                   help="'fair' is a true Lucky Dip; 'unpopular' avoids combinations "
+                        "other players favour (helps only on shared prizes)")
+    p.add_argument("--salt", default="", help="change this for a different set of numbers")
+    p.add_argument("--include", type=int, nargs="+", help="numbers to force onto every line")
+    p.add_argument("--exclude", type=int, nargs="+", help="numbers to never use")
+    p.set_defaults(func=cmd_dip)
+
+    p = sub.add_parser("fetch", help="download UK National Lottery draw history")
+    p.add_argument("-d", "--directory", default="uk-data")
+    p.add_argument("--timeout", type=int, default=60)
+    p.add_argument("--urls", action="store_true",
+                   help="just print the official download links")
+    p.set_defaults(func=cmd_fetch)
+
+    p = sub.add_parser("winners", help="why somebody wins a million almost every week")
+    p.add_argument("game", nargs="?", default=None,
+                   help="show expected winners for one game instead")
+    p.add_argument("--lines-sold", type=int, default=None)
+    p.add_argument("--my-lines", type=int, default=1,
+                   help="how many lines you play per draw")
+    p.set_defaults(func=cmd_winners)
+
     p = sub.add_parser("audit", help="fairness audit of a draw history")
     p.add_argument("game", nargs="?", default="canada_649")
     p.add_argument("--csv", help="draw history CSV")
+    p.add_argument("--uk-csv", help="National Lottery CSV download for this game")
     p.add_argument("--synth", type=int, help="synthesise N fair draws instead")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--top", type=int, default=10, help="how many extreme balls to show")
@@ -381,6 +498,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("backtest", help="compare strategies against a null")
     p.add_argument("game", nargs="?", default="canada_649")
     p.add_argument("--csv")
+    p.add_argument("--uk-csv", help="National Lottery CSV download for this game")
     p.add_argument("--synth", type=int, default=2000)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--tickets", type=int, default=5)

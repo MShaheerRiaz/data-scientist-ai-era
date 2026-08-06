@@ -366,6 +366,67 @@ _LOTTO_MAX = LotteryConfig(
     ),
 )
 
+_THUNDERBALL = LotteryConfig(
+    name="Thunderball (UK)",
+    main_pool=39,
+    main_pick=5,
+    bonus_mode=BonusMode.SEPARATE_POOL,
+    bonus_pool=14,
+    bonus_pick=1,
+    ticket_price=1.00,
+    currency="GBP",
+    slip_columns=10,
+    tiers=(
+        PrizeTier("5 + Thunderball", 5, 1, 500_000.0, is_jackpot=True),
+        PrizeTier("5", 5, 0, 5_000.0),
+        PrizeTier("4 + Thunderball", 4, 1, 250.0),
+        PrizeTier("4", 4, 0, 100.0),
+        PrizeTier("3 + Thunderball", 3, 1, 20.0),
+        PrizeTier("3", 3, 0, 10.0),
+        PrizeTier("2 + Thunderball", 2, 1, 10.0),
+        PrizeTier("1 + Thunderball", 1, 1, 5.0),
+        PrizeTier("0 + Thunderball", 0, 1, 3.0),
+    ),
+    notes=(
+        "Drawn Tue/Wed/Fri/Sat. Every prize is FIXED - the top prize is a flat "
+        "GBP 500,000 and is never shared or rolled over. That makes it the one UK game "
+        "where avoiding popular combinations gains you nothing, because your payout does "
+        "not depend on how many others hold the same numbers. Top prize 1 in 8,060,598; "
+        "any prize about 1 in 12.4."
+    ),
+)
+
+_SET_FOR_LIFE = LotteryConfig(
+    name="Set For Life (UK)",
+    main_pool=47,
+    main_pick=5,
+    bonus_mode=BonusMode.SEPARATE_POOL,
+    bonus_pool=10,
+    bonus_pick=1,
+    ticket_price=1.50,
+    currency="GBP",
+    slip_columns=10,
+    tiers=(
+        # Top prize is an annuity: GBP 10,000/month for 30 years = 3.6m nominal.
+        # Carried at nominal value here; see notes for the present-value caveat.
+        PrizeTier("5 + Life Ball", 5, 1, 3_600_000.0, is_jackpot=True),
+        PrizeTier("5", 5, 0, 120_000.0),
+        PrizeTier("4 + Life Ball", 4, 1, 250.0),
+        PrizeTier("4", 4, 0, 50.0),
+        PrizeTier("3 + Life Ball", 3, 1, 30.0),
+        PrizeTier("3", 3, 0, 20.0),
+        PrizeTier("2 + Life Ball", 2, 1, 10.0),
+        PrizeTier("1 + Life Ball", 1, 1, 4.0),
+    ),
+    notes=(
+        "Drawn Mon/Thu. Top prize is GBP 10,000 a month for 30 years and second prize "
+        "GBP 10,000 a month for one year; both are carried here at NOMINAL value "
+        "(3.6m and 120k). Their present value is far lower - discounting the top prize at "
+        "3% gives roughly GBP 2.4m - so EV figures for this game are optimistic by "
+        "about a third. Prizes are fixed, not shared. Top prize 1 in 15,339,390."
+    ),
+)
+
 _GENERIC_649 = LotteryConfig(
     name="Generic 6/49",
     main_pool=49,
@@ -383,14 +444,21 @@ _GENERIC_649 = LotteryConfig(
 )
 
 PRESETS: dict[str, LotteryConfig] = {
+    # UK National Lottery games
+    "uk_lotto": _UK_LOTTO,
+    "euromillions": _EUROMILLIONS,
+    "thunderball": _THUNDERBALL,
+    "set_for_life": _SET_FOR_LIFE,
+    # Other
     "powerball": _POWERBALL,
     "megamillions": _MEGA_MILLIONS,
-    "euromillions": _EUROMILLIONS,
-    "uk_lotto": _UK_LOTTO,
     "canada_649": _CANADA_649,
     "lotto_max": _LOTTO_MAX,
     "generic_649": _GENERIC_649,
 }
+
+#: The four UK National Lottery draw games, in the order they appear in shops.
+UK_GAMES: tuple[str, ...] = ("uk_lotto", "euromillions", "thunderball", "set_for_life")
 
 
 # --- Digit games -----------------------------------------------------------

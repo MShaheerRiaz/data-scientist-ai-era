@@ -792,3 +792,302 @@ def test_unknown_preset_raises():
 
     with pytest.raises(KeyError):
         get_preset("not_a_real_lottery")
+
+
+# ---------------------------------------------------------------------------
+# UK games
+# ---------------------------------------------------------------------------
+
+UK_PUBLISHED = {
+    "uk_lotto": {"jackpot": 45_057_474, "any": 9.3},
+    "euromillions": {"jackpot": 139_838_160, "any": 13.0},
+    "thunderball": {"jackpot": 8_060_598, "any": 12.4},
+    "set_for_life": {"jackpot": 15_339_390, "any": 20.1},
+}
+
+
+@pytest.mark.parametrize("key", sorted(UK_PUBLISHED))
+def test_uk_game_odds(key):
+    cfg = PRESETS[key]
+    assert round(1 / C.jackpot_probability(cfg)) == UK_PUBLISHED[key]["jackpot"]
+    assert 1 / C.any_prize_probability(cfg) == pytest.approx(
+        UK_PUBLISHED[key]["any"], rel=0.03
+    )
+
+
+def test_thunderball_subtier_odds_are_exact():
+    """The previous implementation shipped wrong sub-tier odds.
+
+    Match 4 + Thunderball is 1 in 47,415, not the 1 in 114,008 that was
+    hard-coded before. Verified by exact hypergeometric computation and
+    cross-checked by simulation.
+    """
+    cfg = PRESETS["thunderball"]
+    # Exact values. The operator publishes these rounded (1 in 35, 1 in 29),
+    # so the reference here is the exact figure, cross-checked by simulation.
+    expected = {
+        "5 + Thunderball": 8_060_598.0, "5": 620_046.0,
+        "4 + Thunderball": 47_415.28, "4": 3_647.33,
+        "3 + Thunderball": 1_436.83, "3": 110.53,
+        "2 + Thunderball": 134.70, "1 + Thunderball": 34.76, "0 + Thunderball": 28.97,
+    }
+    for tier, p in C.all_tier_probabilities(cfg):
+        assert 1 / p == pytest.approx(expected[tier.name], rel=1e-3)
+
+
+def test_set_for_life_subtier_odds_are_exact():
+    cfg = PRESETS["set_for_life"]
+    expected = {
+        "5 + Life Ball": 15_339_390, "5": 1_704_377,
+        "4 + Life Ball": 73_045, "4": 8_116,
+        "3 + Life Ball": 1_782, "3": 198,
+        "2 + Life Ball": 134, "1 + Life Ball": 27.4,
+    }
+    for tier, p in C.all_tier_probabilities(cfg):
+        assert 1 / p == pytest.approx(expected[tier.name], rel=5e-3)
+
+
+def test_uk_games_listed():
+    from lotterylab.config import UK_GAMES
+
+    assert set(UK_GAMES) == {"uk_lotto", "euromillions", "thunderball", "set_for_life"}
+    assert all(PRESETS[g].currency in ("GBP", "EUR") for g in UK_GAMES)
+
+
+# ---------------------------------------------------------------------------
+# Lucky Dip generator
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("key", ["uk_lotto", "euromillions", "thunderball", "set_for_life"])
+def test_lucky_dip_produces_valid_lines(key):
+    from lotterylab.luckydip import lucky_dip
+
+    cfg = PRESETS[key]
+    slip = lucky_dip(cfg, 5)
+    assert len(slip.lines) == 5
+    for line in slip.lines:
+        assert len(set(line.main)) == cfg.main_pick
+        assert all(1 <= v <= cfg.main_pool for v in line.main)
+        assert line.main == tuple(sorted(line.main))
+        if cfg.bonus_mode is BonusMode.SEPARATE_POOL:
+            assert len(set(line.bonus)) == cfg.bonus_pick
+            assert all(1 <= v <= cfg.bonus_pool for v in line.bonus)
+
+
+def test_secure_random_is_uniform():
+    """The generator must not favour any ball."""
+    from lotterylab.luckydip import SecureRandom
+
+    rng = SecureRandom()
+    counts = [0] * 40
+    draws = 40_000
+    for _ in range(draws):
+        for v in rng.sample(range(1, 40), 5):
+            counts[v] += 1
+    expected = draws * 5 / 39
+    raw = sum((counts[v] - expected) ** 2 / expected for v in range(1, 40))
+    stat = raw * (39 - 1) / (39 - 5)          # Haigh correction
+    assert M.chi2_sf(stat, 38) > 0.001
+
+
+def test_secure_random_sample_has_no_duplicates():
+    from lotterylab.luckydip import SecureRandom
+
+    rng = SecureRandom()
+    for _ in range(500):
+        picked = rng.sample(range(1, 60), 6)
+        assert len(set(picked)) == 6
+
+
+def test_lucky_dip_include_and_exclude():
+    from lotterylab.luckydip import lucky_dip
+
+    cfg = PRESETS["uk_lotto"]
+    slip = lucky_dip(cfg, 6, include=[7, 13], exclude=[1, 2, 3, 4, 5])
+    for line in slip.lines:
+        assert 7 in line.main and 13 in line.main
+        assert not ({1, 2, 3, 4, 5} & set(line.main))
+
+
+def test_lucky_dip_rejects_contradictory_constraints():
+    from lotterylab.luckydip import lucky_dip
+
+    cfg = PRESETS["uk_lotto"]
+    with pytest.raises(ValueError):
+        lucky_dip(cfg, 1, include=[7], exclude=[7])
+    with pytest.raises(ValueError):
+        lucky_dip(cfg, 1, include=list(range(1, 9)))
+    with pytest.raises(ValueError):
+        lucky_dip(cfg, 1, include=[99])
+
+
+def test_unpopular_mode_lowers_popularity():
+    from lotterylab.luckydip import lucky_dip
+
+    cfg = PRESETS["uk_lotto"]
+    fair = lucky_dip(cfg, 8, mode="fair")
+    smart = lucky_dip(cfg, 8, mode="unpopular")
+    assert smart.mean_popularity < fair.mean_popularity
+
+
+def test_fixed_prize_games_are_flagged_as_unshared():
+    """Thunderball prizes are never shared, so popularity is irrelevant."""
+    from lotterylab.luckydip import _prizes_are_shared, lucky_dip
+
+    assert not _prizes_are_shared(PRESETS["thunderball"])
+    assert _prizes_are_shared(PRESETS["uk_lotto"])
+    text = lucky_dip(PRESETS["thunderball"], 2, mode="unpopular").to_text()
+    assert "gains you nothing" in text
+
+
+def test_jackpot_chance_scales_with_lines():
+    from lotterylab.luckydip import lucky_dip
+
+    cfg = PRESETS["thunderball"]
+    one = lucky_dip(cfg, 1).jackpot_chance
+    ten = lucky_dip(cfg, 10).jackpot_chance
+    assert ten == pytest.approx(1 - (1 - C.jackpot_probability(cfg)) ** 10, rel=1e-9)
+    assert ten > one
+
+
+# ---------------------------------------------------------------------------
+# UK data parsing
+# ---------------------------------------------------------------------------
+
+_UK_FIXTURES = {
+    "uk_lotto": (
+        "DrawDate,Ball 1,Ball 2,Ball 3,Ball 4,Ball 5,Ball 6,Bonus Ball,Ball Set,Machine,DrawNumber",
+        ["06-Aug-2026,3,13,26,34,48,55,21,Set 3,Arthur,3055",
+         "02-Aug-2026,7,11,19,28,37,52,44,Set 1,Merlin,3054"],
+        (3, 13, 26, 34, 48, 55), (21,),
+    ),
+    "euromillions": (
+        "DrawDate,Ball 1,Ball 2,Ball 3,Ball 4,Ball 5,Lucky Star 1,Lucky Star 2,DrawNumber",
+        ["06-Aug-2026,4,17,29,38,46,3,9,1712",
+         "02-Aug-2026,1,12,22,35,50,5,11,1711"],
+        (4, 17, 29, 38, 46), (3, 9),
+    ),
+    "thunderball": (
+        "DrawDate,Ball 1,Ball 2,Ball 3,Ball 4,Ball 5,Thunderball,Ball Set,Machine,DrawNumber",
+        ["06-Aug-2026,3,11,19,28,37,9,Set 2,Excalibur,1201"],
+        (3, 11, 19, 28, 37), (9,),
+    ),
+    "set_for_life": (
+        "DrawDate,Ball 1,Ball 2,Ball 3,Ball 4,Ball 5,Life Ball,Ball Set,Machine,DrawNumber",
+        ["06-Aug-2026,5,14,23,31,44,7,Set 1,Merlin,540"],
+        (5, 14, 23, 31, 44), (7,),
+    ),
+}
+
+
+@pytest.mark.parametrize("game", sorted(_UK_FIXTURES))
+def test_uk_csv_parses_real_layouts(game):
+    from lotterylab.uk_data import parse
+
+    header, rows, first_main, first_bonus = _UK_FIXTURES[game]
+    history = parse("\n".join([header] + rows), game)
+    assert history.n_draws == len(rows)
+    assert not history.warnings
+    # Sorted oldest-first, so the last row of a newest-first file comes first.
+    assert history.draws[-1].sorted_main() == first_main
+    assert history.draws[-1].bonus == first_bonus
+
+
+def test_uk_csv_sorts_oldest_first():
+    from lotterylab.uk_data import parse
+
+    header, rows, _, _ = _UK_FIXTURES["uk_lotto"]
+    history = parse("\n".join([header] + rows), "uk_lotto")
+    dates = [d.draw_date for d in history.draws]
+    assert dates == sorted(dates)
+
+
+def test_uk_csv_survives_renamed_and_reordered_columns():
+    from lotterylab.uk_data import parse
+
+    text = ("DrawNumber,Machine,Draw Date,BALL_1,ball 2,Ball  3,Ball 4,Ball 5,THUNDERBALL\n"
+            "1201,Excalibur,06-Aug-2026,3,11,19,28,37,9")
+    history = parse(text, "thunderball")
+    assert history.n_draws == 1
+    assert history.draws[0].sorted_main() == (3, 11, 19, 28, 37)
+
+
+def test_uk_csv_reports_a_wrong_game_rather_than_guessing():
+    from lotterylab.uk_data import parse
+
+    header, rows, _, _ = _UK_FIXTURES["thunderball"]
+    history = parse("\n".join([header] + rows), "uk_lotto")
+    assert history.n_draws == 0
+    assert history.warnings and "main-ball columns" in history.warnings[0]
+
+
+def test_uk_source_urls():
+    from lotterylab.uk_data import source_url
+
+    assert source_url("uk_lotto").endswith("/results/lotto/draw-history/csv")
+    assert source_url("set_for_life").endswith("/results/set-for-life/draw-history/csv")
+    with pytest.raises(KeyError):
+        source_url("not_a_game")
+
+
+def test_uk_download_reports_failure_without_raising():
+    """A blocked network must produce a message, not a traceback."""
+    from lotterylab.uk_data import download
+
+    result = download("uk_lotto", "/tmp/should-not-exist.csv", timeout=1)
+    assert isinstance(result.ok, bool)
+    if not result.ok:
+        assert result.error
+
+
+# ---------------------------------------------------------------------------
+# Winners
+# ---------------------------------------------------------------------------
+
+
+def test_expected_winners_scales_with_sales():
+    from lotterylab.winners import expected_winners
+
+    cfg = PRESETS["uk_lotto"]
+    small = expected_winners(cfg, 1_000_000, game_key="uk_lotto")
+    large = expected_winners(cfg, 20_000_000, game_key="uk_lotto")
+    assert large.expected_above(1_000_000) == pytest.approx(
+        small.expected_above(1_000_000) * 20, rel=1e-9
+    )
+
+
+def test_millionaire_summary_mentions_the_guarantee():
+    from lotterylab.winners import uk_millionaire_summary
+
+    text = uk_millionaire_summary(your_lines_per_week=1)
+    assert "Millionaire Maker" in text
+    assert "guaranteed" in text
+
+
+def test_lotto_million_tier_produces_multiple_winners_per_draw():
+    """The flat GBP 1m tier is hit routinely - that is the design."""
+    from lotterylab.winners import expected_winners
+
+    forecast = expected_winners(PRESETS["uk_lotto"], 15_000_000, game_key="uk_lotto")
+    match5bonus = [t for t in forecast.tiers if t.tier_name == "5 + bonus"][0]
+    assert match5bonus.expected_winners > 1.0
+    assert match5bonus.p_at_least_one > 0.8
+
+
+@pytest.mark.parametrize("argv", [
+    ["dip", "uk_lotto", "-n", "3"],
+    ["dip", "euromillions", "-n", "2", "--mode", "unpopular", "--salt", "x"],
+    ["dip", "thunderball", "-n", "2"],
+    ["dip", "set_for_life", "-n", "2"],
+    ["winners"],
+    ["winners", "uk_lotto"],
+    ["fetch", "--urls"],
+    ["odds", "thunderball"],
+    ["odds", "set_for_life"],
+])
+def test_uk_cli_commands_run(argv, capsys):
+    from lotterylab.cli import main
+
+    assert main(argv) == 0
+    assert capsys.readouterr().out.strip()

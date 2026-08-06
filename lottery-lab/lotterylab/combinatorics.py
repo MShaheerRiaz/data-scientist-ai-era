@@ -285,9 +285,16 @@ def sum_percentile(n: int, k: int, total: int) -> float:
 
 
 def odds_string(probability: float) -> str:
-    """Render a probability as ``1 in N``, the way lotteries quote it."""
+    """Render a probability as ``1 in N``, the way lotteries quote it.
+
+    Keeps one decimal place below 100, where rounding to a whole number
+    would turn "1 in 9.2" into "1 in 9" and quietly overstate the odds.
+    """
     if probability <= 0.0:
         return "never"
     if probability >= 1.0:
         return "certain"
-    return f"1 in {1.0 / probability:,.0f}"
+    value = 1.0 / probability
+    if value < 100:
+        return f"1 in {value:,.1f}"
+    return f"1 in {value:,.0f}"

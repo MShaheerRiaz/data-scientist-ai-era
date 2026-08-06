@@ -31,7 +31,41 @@ SciPy and pytest are needed only to run the test suite.
 
 ---
 
-## Quick start
+## Quick start — UK games
+
+```bash
+# Generate numbers (this is the random number generator)
+python -m lotterylab dip uk_lotto -n 5
+python -m lotterylab dip euromillions -n 3 --mode unpopular --salt "your-name"
+python -m lotterylab dip thunderball -n 2
+python -m lotterylab dip set_for_life -n 2 --include 7 13 --exclude 1 2 3
+
+# Why somebody wins a million almost every week
+python -m lotterylab winners
+
+# Get the real draw history (free official download, no key needed)
+python -m lotterylab fetch                 # downloads all four games
+python -m lotterylab fetch --urls          # just print the links
+python -m lotterylab audit uk_lotto --uk-csv uk-data/uk_lotto.csv
+```
+
+### The four UK National Lottery games
+
+| Game | Structure | Price | Top prize odds | Any prize | Prizes shared? |
+|---|---|---|---|---|---|
+| **Lotto** | 6 of 59 + bonus | £2.00 | 1 in 45,057,474 | 1 in 9.2 | Jackpot only |
+| **EuroMillions** | 5 of 50 + 2 of 12 | £2.50 | 1 in 139,838,160 | 1 in 13.0 | **All tiers** |
+| **Thunderball** | 5 of 39 + 1 of 14 | £1.00 | 1 in 8,060,598 | 1 in 12.4 | **Never** — all fixed |
+| **Set For Life** | 5 of 47 + 1 of 10 | £1.50 | 1 in 15,339,390 | 1 in 20.1 | **Never** — all fixed |
+
+Two practical consequences:
+
+- **Thunderball has by far the best top-prize odds** (1 in 8.1m for £1) — though the prize is a flat £500,000, never a rolling jackpot.
+- **On Thunderball and Set For Life, `--mode unpopular` gains you nothing**, because prizes are fixed and never split. The tool tells you so rather than selling you the feature. Use it on Lotto and EuroMillions, where jackpots *are* shared.
+
+*Powerball is a US game and is not sold in the UK.*
+
+## Quick start — everything else
 
 ```bash
 # What games are built in, and what are the real odds?
@@ -62,6 +96,32 @@ python -m lotterylab 2d 1443.79 24221.65
 ```
 
 ---
+
+## "Someone won a million last week" — why that's guaranteed
+
+The most common reason people start playing seriously is noticing a big winner almost every week. That observation is completely correct, and it is **designed**:
+
+```
+  EuroMillions UK Millionaire Maker            2.00   guaranteed by design
+  Lotto Match 5 + Bonus (flat £1m)             4.66   from 15,000,000 lines x 2 draws
+  EuroMillions jackpot, UK share (~15%)        0.06   estimate
+  ------------------------------------------------------------------------
+  Expected new UK millionaires per week        6.73
+```
+
+The Millionaire Maker raffle alone guarantees **two every single week**, with no matching required — the code is drawn from codes actually sold, so a winner exists before the draw happens. And Lotto's Match 5 + Bonus pays a flat £1,000,000 at 1 in 7,509,579, which with ~15 million lines in play produces about **two winners per draw**.
+
+Meanwhile, playing one line in both Lotto draws every week:
+
+| | |
+|---|---|
+| Chance of winning £1m+ in a given week | 1 in 3,218,391 |
+| Chance across **50 years** of never missing a draw | **1 in 1,238** |
+| Cost across those 50 years | £10,400 |
+
+Both facts are true at once. Several people become millionaires every week, *and* your own chance is about 1 in 1,238 after fifty years of playing every draw. The weekly winners come from the size of the crowd — 30+ million lines — not from the odds, which never move.
+
+`python -m lotterylab winners`
 
 ## The five results worth knowing
 

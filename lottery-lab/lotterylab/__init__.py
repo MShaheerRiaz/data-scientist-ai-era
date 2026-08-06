@@ -29,6 +29,7 @@ from __future__ import annotations
 __version__ = "1.0.0"
 
 from .config import (
+    UK_GAMES,
     BonusMode,
     DigitGameConfig,
     LotteryConfig,
@@ -39,6 +40,7 @@ from .config import (
     list_presets,
 )
 from .data import Draw, DrawHistory, SynthBias, load_csv, save_csv, synthesize
+from .luckydip import Line, Slip, lucky_dip
 
 __all__ = [
     "__version__",
@@ -48,6 +50,10 @@ __all__ = [
     "PrizeTier",
     "PRESETS",
     "DIGIT_PRESETS",
+    "UK_GAMES",
+    "lucky_dip",
+    "Line",
+    "Slip",
     "get_preset",
     "list_presets",
     "Draw",
