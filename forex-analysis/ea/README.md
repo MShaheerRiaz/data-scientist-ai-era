@@ -52,3 +52,47 @@ FTMO Free Trial for a few weeks before the real Challenge.**
 
 Inputs you might actually change: `InpRiskPercent` (0.5 → 0.25 for extra safety),
 `InpExitHour`, `InpMaxSpreadPips` (skip thin/wild opens), `InpNewsBlockMinutes`.
+
+## Journal
+
+Same design as `binance-claude-trader/journal.py`: an **append-only JSONL file**
+where every decision is recorded — including the entries that were *skipped* and
+why (spread too wide, news blackout, guard tripped). Skips and guard events are
+the most useful records: they tell you whether the filters are protecting you or
+muzzling the strategy.
+
+- File: `GbpJpyMondayEA_journal.jsonl` in the terminal's **Common** data folder
+  (MT5 → File → Open Data Folder → up one level → `Common\Files\`).
+- Events: `attach`, `entry` (price, lots, SL, spread, risk%), `exit` (reason,
+  pips, profit, hours held), `skip_entry` (reason), `guard_daily_loss`,
+  `guard_total_drawdown`, `error`, `detach`. Every line carries timestamp,
+  equity and balance.
+- Review loop: this EA is deterministic, so unlike the crypto bot there is no
+  in-loop LLM reviewing each decision. Instead, paste the journal file into a
+  Claude session periodically — the same process-vs-outcome review applies (a
+  losing Monday is not automatically a mistake; a winning one is not
+  automatically correct). What you're auditing is execution quality (slippage,
+  spread at entry, guard behaviour) and whether the edge is decaying.
+- Turn off with `InpJournal = false` if ever needed.
+
+## Keeping it running (you do NOT need your laptop on 24/7)
+
+The EA only ever acts between Sunday ~23:00 and Tuesday 00:05 **server time**
+(entry at the Monday 00:00 bar, exit at 23:00 Monday). Outside that window it
+does nothing. Your options, best first:
+
+1. **MT5 built-in VPS (recommended):** right-click the chart → "Add to Virtual
+   Hosting" (~$10–15/month). Your EA + settings migrate to MetaQuotes' server,
+   run 24/7 with ~1–5 ms latency to the broker, and your laptop can be off.
+2. **Any Windows VPS** (Contabo/Kamatera/ForexVPS etc., ~$5–15/month): install
+   MT5, log into the FTMO account, attach the EA once, leave it running.
+3. **Laptop only:** fine for paper trading — it just has to be on, with MT5
+   open and Algo Trading enabled, from Sunday night through Monday close
+   (server time). If the machine sleeps mid-trade the stop-loss still sits on
+   the broker's server (it's a real SL order, not a virtual one), so the
+   position is protected; you'd only miss the timed 23:00 exit, and the EA
+   closes the leftover position the moment it reconnects (any non-Monday bar
+   triggers the safety exit).
+
+For the paper phase: FTMO Free Trial or any MT5 demo account + your laptop is
+plenty. Move to a VPS when real Challenge money is on the line.

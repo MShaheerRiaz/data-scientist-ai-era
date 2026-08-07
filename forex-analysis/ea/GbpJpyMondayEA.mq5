@@ -36,6 +36,7 @@ input double InpMaxTotalDDPct    = 8.0;   // Halt EA if equity falls this % from
 input double InpMaxSpreadPips    = 6.0;   // Skip entry if spread wider than this
 input int    InpNewsBlockMinutes = 3;     // Skip entry within +/- minutes of high-impact news (0 = off)
 input long   InpMagic            = 20260807;
+input bool   InpJournal          = true;  // Write JSONL journal (Common\Files)
 
 CTrade  trade;
 double  g_baselineEquity = 0;     // equity when EA first attached (challenge baseline)
@@ -48,6 +49,32 @@ double PipSize()   { return _Point * 10; }  // 3-digit JPY quotes: 1 pip = 0.01
 double PipsToPrice(double pips) { return pips * PipSize(); }
 
 //+------------------------------------------------------------------+
+//| Append-only JSONL journal, same shape as the Binance bot's:      |
+//| every decision is logged, including skipped entries and why —    |
+//| skips tell you whether the filters are saving you or muzzling    |
+//| you. File: Common\Files\GbpJpyMondayEA_journal.jsonl             |
+//+------------------------------------------------------------------+
+const string JOURNAL_FILE = "GbpJpyMondayEA_journal.jsonl";
+
+void Journal(const string event, const string kvJson)
+{
+   if(!InpJournal) return;
+   int fh = FileOpen(JOURNAL_FILE, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(fh == INVALID_HANDLE) { Print("journal open failed: ", GetLastError()); return; }
+   FileSeek(fh, 0, SEEK_END);
+   string line = StringFormat(
+      "{\"ts\":\"%s\",\"event\":\"%s\",\"symbol\":\"%s\",\"equity\":%.2f,\"balance\":%.2f%s%s}",
+      TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS), event, _Symbol,
+      AccountInfoDouble(ACCOUNT_EQUITY), AccountInfoDouble(ACCOUNT_BALANCE),
+      StringLen(kvJson) > 0 ? "," : "", kvJson);
+   FileWriteString(fh, line + "\n");
+   FileClose(fh);
+}
+
+string J(const string k, const double v)  { return StringFormat("\"%s\":%.3f", k, v); }
+string Js(const string k, const string v) { return StringFormat("\"%s\":\"%s\"", k, v); }
+
+//+------------------------------------------------------------------+
 int OnInit()
 {
    if(StringFind(_Symbol, "GBPJPY") < 0)
@@ -55,7 +82,14 @@ int OnInit()
    trade.SetExpertMagicNumber(InpMagic);
    g_baselineEquity = AccountInfoDouble(ACCOUNT_EQUITY);
    ResetDay();
+   Journal("attach", J("baseline_equity", g_baselineEquity) + "," +
+                     J("risk_pct", InpRiskPercent) + "," + J("atr_mult", InpATRMult));
    return INIT_SUCCEEDED;
+}
+
+void OnDeinit(const int reason)
+{
+   Journal("detach", StringFormat("\"reason_code\":%d", reason));
 }
 
 void ResetDay()
@@ -88,8 +122,19 @@ void CloseAll(const string reason)
          PositionGetInteger(POSITION_MAGIC) == InpMagic &&
          PositionGetString(POSITION_SYMBOL) == _Symbol)
       {
+         double openPx  = PositionGetDouble(POSITION_PRICE_OPEN);
+         double curPx   = PositionGetDouble(POSITION_PRICE_CURRENT);
+         double profit  = PositionGetDouble(POSITION_PROFIT);
+         double lots    = PositionGetDouble(POSITION_VOLUME);
+         long   openTs  = PositionGetInteger(POSITION_TIME);
          trade.PositionClose(ticket);
          Print("Closed position: ", reason);
+         Journal("exit", Js("reason", reason) + "," +
+                 J("entry_price", openPx) + "," + J("exit_price", curPx) + "," +
+                 J("pips", (curPx - openPx) / PipSize()) + "," +
+                 J("profit", profit) + "," + J("lots", lots) + "," +
+                 StringFormat("\"held_hours\":%.1f",
+                              (double)(TimeCurrent() - openTs) / 3600.0));
       }
    }
 }
@@ -106,12 +151,14 @@ bool GuardsOK()
       eq <= g_baselineEquity * (1.0 - InpMaxTotalDDPct / 100.0))
    {
       g_totalHalt = true;
+      Journal("guard_total_drawdown", J("baseline", g_baselineEquity));
       CloseAll("total drawdown guard hit - EA halted, detach or review");
       Print("TOTAL DRAWDOWN GUARD: equity ", eq, " vs baseline ", g_baselineEquity);
       return false;
    }
    if(eq <= g_dayStartEquity * (1.0 - InpMaxDailyLossPct / 100.0))
    {
+      Journal("guard_daily_loss", J("day_start_equity", g_dayStartEquity));
       CloseAll("daily loss guard hit - no more trades today");
       return false;
    }
@@ -200,13 +247,23 @@ void OnTick()
    if(spreadPips > InpMaxSpreadPips)
    {
       Print("Entry skipped: spread ", DoubleToString(spreadPips, 1), " pips");
+      Journal("skip_entry", Js("reason", "spread") + "," + J("spread_pips", spreadPips));
       return;
    }
-   if(!NewsClear()) return;
+   if(!NewsClear())
+   {
+      Journal("skip_entry", Js("reason", "news_blackout"));
+      return;
+   }
 
    double stopDist = StopDistancePrice();
    double lots     = LotForRisk(stopDist);
-   if(lots <= 0) { Print("Entry skipped: lot calc failed"); return; }
+   if(lots <= 0)
+   {
+      Print("Entry skipped: lot calc failed");
+      Journal("skip_entry", Js("reason", "lot_calc_failed"));
+      return;
+   }
 
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double sl  = NormalizeDouble(ask - stopDist, _Digits);
@@ -215,8 +272,14 @@ void OnTick()
       g_lastEntryDay = today;
       Print("Monday long opened: ", lots, " lots, SL ", sl,
             " (", DoubleToString(stopDist / PipSize(), 0), " pips)");
+      Journal("entry", J("price", trade.ResultPrice()) + "," + J("lots", lots) + "," +
+              J("sl", sl) + "," + J("sl_pips", stopDist / PipSize()) + "," +
+              J("spread_pips", spreadPips) + "," + J("risk_pct", InpRiskPercent));
    }
    else
+   {
       Print("Buy failed: ", trade.ResultRetcodeDescription());
+      Journal("error", Js("where", "buy") + "," + Js("message", trade.ResultRetcodeDescription()));
+   }
 }
 //+------------------------------------------------------------------+
