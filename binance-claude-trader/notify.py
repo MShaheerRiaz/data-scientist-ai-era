@@ -22,15 +22,26 @@ from __future__ import annotations
 import requests
 
 
+# Telegram rejects messages over 4096 characters outright, so long replies
+# (the journal tail, the lesson book) are cut rather than silently dropped.
+MAX_MESSAGE = 4000
+
+
 class TelegramNotifier:
-    def __init__(self, token: str, chat_id: str, post_fn=None):
+    def __init__(self, token: str, chat_id: str, post_fn=None, get_fn=None):
         self.token = token
         self.chat_id = chat_id
-        # Injectable so tests exercise send() without the network.
+        # Injectable so tests exercise send()/poll() without the network.
         self._post = post_fn or requests.post
+        self._get = get_fn or requests.get
+        # Telegram's cursor: acknowledging update N stops it being redelivered.
+        # Starts as None so the first poll takes whatever is pending.
+        self._offset: int | None = None
 
     def send(self, text: str) -> bool:
         """Send one message. Returns False on any failure, never raises."""
+        if len(text) > MAX_MESSAGE:
+            text = text[:MAX_MESSAGE] + "\n… (truncated)"
         try:
             resp = self._post(
                 f"https://api.telegram.org/bot{self.token}/sendMessage",
@@ -44,6 +55,53 @@ class TelegramNotifier:
         except Exception as exc:  # noqa: BLE001 - notifications must never break trading
             print(f"[notify] telegram send failed: {exc}")
             return False
+
+    def poll_commands(self) -> list[str]:
+        """Return new message texts sent to the bot by the configured chat.
+
+        Short-polls: timeout=0 so this returns immediately and never stalls the
+        trading loop. Anyone who discovers the bot's username can message it,
+        so messages from any chat other than the configured one are discarded —
+        this is the only thing standing between a stranger and /pause.
+
+        Returns an empty list on any failure. Never raises.
+        """
+        try:
+            params = {"timeout": 0}
+            if self._offset is not None:
+                params["offset"] = self._offset
+            resp = self._get(
+                f"https://api.telegram.org/bot{self.token}/getUpdates",
+                params=params,
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                print(f"[notify] getUpdates HTTP {resp.status_code}")
+                return []
+            updates = resp.json().get("result", [])
+        except Exception as exc:  # noqa: BLE001 - polling must never break trading
+            print(f"[notify] telegram poll failed: {exc}")
+            return []
+
+        texts: list[str] = []
+        for update in updates:
+            # Acknowledge every update, including ones we ignore — otherwise a
+            # message from a stranger would be redelivered forever.
+            update_id = update.get("update_id")
+            if isinstance(update_id, int):
+                self._offset = update_id + 1
+
+            message = update.get("message") or {}
+            chat_id = str((message.get("chat") or {}).get("id", ""))
+            text = (message.get("text") or "").strip()
+            if not text:
+                continue
+            if chat_id != str(self.chat_id):
+                print(f"[notify] ignoring message from unauthorised chat {chat_id}")
+                continue
+            texts.append(text)
+
+        return texts
 
 
 def notifier_from_config(cfg) -> TelegramNotifier | None:

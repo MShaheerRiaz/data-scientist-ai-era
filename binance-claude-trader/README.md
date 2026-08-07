@@ -303,6 +303,42 @@ No-trade cycles stay silent by design. Notifications are fire-and-forget: a
 Telegram outage is logged and ignored, it can never affect trading. Leave the
 two variables blank and the feature is off.
 
+### Asking it questions
+
+Telegram is two-way. Send the bot a command and it answers from live state and
+its journal, so you can watch what it is doing without SSHing into the VPS:
+
+| Command | What you get |
+|---|---|
+| `/status` | mode, equity, day P&L, open positions, paused/halted |
+| `/positions` | each position with live P&L and progress in R |
+| `/why` | the last decision, its reasoning, and what it passed on |
+| `/rejected` | recent entries the risk gate blocked, with reasons |
+| `/journal` | the last dozen journal events |
+| `/pnl` | closed trades, win rate, total realised |
+| `/lessons` | everything it has learned, with repeat counts |
+| `/pause` `/resume` | stop or restart **new** entries |
+
+Replies land within ~`POLL_SECONDS`, because commands are polled on the same
+clock as the exit watcher — you get an answer in seconds even mid-way through
+an hourly candle.
+
+Three deliberate properties:
+
+- **Only your chat can command it.** Anyone who discovers the bot's username
+  can message it; messages from any other chat id are discarded (and
+  acknowledged, so they are not redelivered forever).
+- **`/pause` does not abandon open risk.** It blocks new entries only. Stops
+  and targets on existing positions keep being enforced every 30 seconds,
+  because "pause" must never mean "stop looking after live money". It also
+  skips the model call, so a paused bot costs nothing.
+- **No command can raise.** The handler runs inside the trading loop, so a
+  failure formatting a reply comes back as text, never as an exception that
+  interrupts position management.
+
+`/pnl` deliberately warns you when there are fewer than 50 closed trades —
+a three-trade winning streak is not an edge, and the bot says so.
+
 ---
 
 ## Cost
@@ -356,7 +392,8 @@ llm/anthropic_provider.py   Claude, with caching and refusal handling
 risk.py                 the gate — deterministic, not promptable
 executor.py             order placement and exit management
 journal.py              JSONL log + crash-safe state
-notify.py               Telegram alerts, fire-and-forget
+notify.py               Telegram alerts + command polling, fire-and-forget
+telegram_control.py     answers /status, /why, /journal … from live state
 main.py                 the loop
 tests/test_risk.py      19 tests covering the gate
 ```

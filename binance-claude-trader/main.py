@@ -26,6 +26,7 @@ from llm.anthropic_provider import AnthropicProvider
 from lessons import REVIEW_SCHEMA, REVIEW_SYSTEM_PROMPT, LessonBook, build_review_payload
 from llm.base import ProviderRefusal
 from notify import notifier_from_config
+from telegram_control import CommandHandler, Controls
 from risk import PaperAccount, RiskGate
 from universe import build_snapshots, select_universe
 
@@ -197,6 +198,7 @@ def run_cycle(
     book: LessonBook,
     scanner,
     notifier=None,
+    controls=None,
 ) -> None:
     # 1. Honour stops and targets before considering anything new.
     manage_exits(
@@ -218,6 +220,13 @@ def run_cycle(
         if notifier and not was_halted:
             notifier.send(f"⛔ {kill.reason}\nNo new positions until the UTC day rolls.")
         store.save(positions, day, paper)
+        return
+
+    # Paused from Telegram: exits were already managed above, so open risk is
+    # still supervised — only new entries stop. Checked before the universe
+    # scan so a paused bot costs nothing in API calls either.
+    if controls is not None and controls.paused:
+        print("[main] paused — no new positions this cycle.")
         return
 
     # 3. Candidate set. The model picks from these; it cannot invent a symbol
@@ -376,6 +385,7 @@ def main() -> int:
         else None
     )
     notifier = notifier_from_config(cfg)
+    controls = Controls()
 
     try:
         client.ping()
@@ -385,6 +395,24 @@ def main() -> int:
         return 1
 
     positions, day, paper = store.load(PaperAccount(starting_equity=cfg.paper_equity))
+
+    # Answers Telegram queries from live state. It holds references to the very
+    # same positions/day/paper objects the loop mutates in place, so a /status
+    # sent mid-cycle reports what is true right now, not a snapshot.
+    commands = (
+        CommandHandler(
+            cfg,
+            positions=positions,
+            day=day,
+            paper=paper,
+            book=book,
+            controls=controls,
+            equity_fn=lambda: current_equity(cfg, client, positions, paper),
+            price_fn=client.price,
+        )
+        if notifier
+        else None
+    )
 
     mode = "TESTNET" if cfg.testnet else "LIVE"
     order_mode = "DRY-RUN (no orders sent)" if cfg.dry_run else "ORDERS ARMED"
@@ -407,7 +435,8 @@ def main() -> int:
     if notifier:
         notifier.send(
             f"🤖 Bot started — {mode} / {order_mode}\n"
-            f"{cfg.interval} candles, {len(positions)} open position(s)"
+            f"{cfg.interval} candles, {len(positions)} open position(s)\n"
+            f"Send /help to see what you can ask me."
         )
 
     journal.write("start", {"mode": mode, "dry_run": cfg.dry_run, "model": cfg.model})
@@ -419,6 +448,7 @@ def main() -> int:
             run_cycle(
                 cfg, client, provider, gate, executor, journal, store,
                 positions, day, paper, book, scanner, notifier=notifier,
+                controls=controls,
             )
         except Exception as exc:  # noqa: BLE001 - a bad cycle must not end the run
             journal.error("cycle", str(exc))
@@ -446,6 +476,13 @@ def main() -> int:
                     )
                 except Exception as exc:  # noqa: BLE001 - watcher must not kill the loop
                     journal.error("exit_watch", str(exc))
+            # Telegram commands are answered on the same clock, so /status
+            # replies within ~POLL_SECONDS even while waiting on an hourly bar.
+            if commands and _running:
+                try:
+                    commands.poll_and_reply(notifier)
+                except Exception as exc:  # noqa: BLE001 - chat must not kill the loop
+                    journal.error("telegram_poll", str(exc))
 
     journal.write("stop", {"open_positions": len(positions)})
     store.save(positions, day, paper)
