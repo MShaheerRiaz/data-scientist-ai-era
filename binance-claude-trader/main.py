@@ -26,7 +26,7 @@ from llm.anthropic_provider import AnthropicProvider
 from lessons import REVIEW_SCHEMA, REVIEW_SYSTEM_PROMPT, LessonBook, build_review_payload
 from llm.base import ProviderRefusal
 from notify import notifier_from_config
-from telegram_control import CommandHandler, Controls
+from telegram_control import CommandHandler
 from risk import PaperAccount, RiskGate
 from universe import build_snapshots, select_universe
 
@@ -198,7 +198,6 @@ def run_cycle(
     book: LessonBook,
     scanner,
     notifier=None,
-    controls=None,
 ) -> None:
     # 1. Honour stops and targets before considering anything new.
     manage_exits(
@@ -220,13 +219,6 @@ def run_cycle(
         if notifier and not was_halted:
             notifier.send(f"⛔ {kill.reason}\nNo new positions until the UTC day rolls.")
         store.save(positions, day, paper)
-        return
-
-    # Paused from Telegram: exits were already managed above, so open risk is
-    # still supervised — only new entries stop. Checked before the universe
-    # scan so a paused bot costs nothing in API calls either.
-    if controls is not None and controls.paused:
-        print("[main] paused — no new positions this cycle.")
         return
 
     # 3. Candidate set. The model picks from these; it cannot invent a symbol
@@ -385,7 +377,6 @@ def main() -> int:
         else None
     )
     notifier = notifier_from_config(cfg)
-    controls = Controls()
 
     try:
         client.ping()
@@ -406,7 +397,6 @@ def main() -> int:
             day=day,
             paper=paper,
             book=book,
-            controls=controls,
             equity_fn=lambda: current_equity(cfg, client, positions, paper),
             price_fn=client.price,
         )
@@ -436,7 +426,8 @@ def main() -> int:
         notifier.send(
             f"🤖 Bot started — {mode} / {order_mode}\n"
             f"{cfg.interval} candles, {len(positions)} open position(s)\n"
-            f"Send /help to see what you can ask me."
+            f"Send /help to see what you can ask me. I report only — "
+            f"I take no trading instructions from chat."
         )
 
     journal.write("start", {"mode": mode, "dry_run": cfg.dry_run, "model": cfg.model})
@@ -448,7 +439,6 @@ def main() -> int:
             run_cycle(
                 cfg, client, provider, gate, executor, journal, store,
                 positions, day, paper, book, scanner, notifier=notifier,
-                controls=controls,
             )
         except Exception as exc:  # noqa: BLE001 - a bad cycle must not end the run
             journal.error("cycle", str(exc))

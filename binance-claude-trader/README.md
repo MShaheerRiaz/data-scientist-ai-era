@@ -305,39 +305,51 @@ two variables blank and the feature is off.
 
 ### Asking it questions
 
-Telegram is two-way. Send the bot a command and it answers from live state and
-its journal, so you can watch what it is doing without SSHing into the VPS:
+Telegram is two-way, but **read-only**. Send the bot a command and it answers
+from live state and its journal, so you can watch what it is doing without
+SSHing into the VPS:
 
 | Command | What you get |
 |---|---|
-| `/status` | mode, equity, day P&L, open positions, paused/halted |
+| `/status` | mode, equity, day P&L, open positions, halted? |
 | `/positions` | each position with live P&L and progress in R |
 | `/why` | the last decision, its reasoning, and what it passed on |
 | `/rejected` | recent entries the risk gate blocked, with reasons |
 | `/journal` | the last dozen journal events |
 | `/pnl` | closed trades, win rate, total realised |
 | `/lessons` | everything it has learned, with repeat counts |
-| `/pause` `/resume` | stop or restart **new** entries |
 
 Replies land within ~`POLL_SECONDS`, because commands are polled on the same
 clock as the exit watcher — you get an answer in seconds even mid-way through
 an hourly candle.
 
-Three deliberate properties:
-
-- **Only your chat can command it.** Anyone who discovers the bot's username
-  can message it; messages from any other chat id are discarded (and
-  acknowledged, so they are not redelivered forever).
-- **`/pause` does not abandon open risk.** It blocks new entries only. Stops
-  and targets on existing positions keep being enforced every 30 seconds,
-  because "pause" must never mean "stop looking after live money". It also
-  skips the model call, so a paused bot costs nothing.
-- **No command can raise.** The handler runs inside the trading loop, so a
-  failure formatting a reply comes back as text, never as an exception that
-  interrupts position management.
+**Nothing sent over chat can act on the account.** There is no command to
+open, close, pause, or resize a position, and `test_no_command_can_act_on_the_account`
+exists to keep it that way. The reasoning: chat is the only part of this system
+reachable from the open internet, so the worst case for a compromised token is
+that someone reads a P&L figure. Trading decisions come from the model and the
+risk gate and nothing else can reach them. To halt trading, stop the service on
+the VPS.
 
 `/pnl` deliberately warns you when there are fewer than 50 closed trades —
 a three-trade winning streak is not an edge, and the bot says so.
+
+### Keeping it private
+
+Telegram bots cannot be made unlisted, so privacy is enforced at the bot rather
+than by hiding it:
+
+- **Only your chat id gets answers.** Every other chat is refused and gets no
+  reply at all — not an error, not a "not authorised" message, nothing. A
+  stranger cannot even confirm the bot is running.
+- **You are told if it happens.** The first message from an unknown chat sends
+  you a warning, capped at `MAX_REFUSAL_ALERTS` per run so it cannot itself
+  become a spam channel.
+- **Harden it in BotFather** (30 seconds, recommended): send `/setjoingroups`
+  → *Disable* so nobody can add it to a group, and `/setprivacy` → *Enable*.
+- **If the token ever leaks**, `/revoke` in BotFather invalidates it instantly;
+  put the new one in `.env` and restart. The token is the only secret here —
+  it grants chat access, never account access.
 
 ---
 

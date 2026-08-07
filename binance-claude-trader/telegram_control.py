@@ -1,14 +1,16 @@
-"""Two-way Telegram: ask the running bot what it is doing.
+"""Telegram read-out: ask the running bot what it is doing.
 
 The notifier pushes events at you. This pulls: you send a command from your
 phone and the bot answers from its live state and its journal. That means you
 can see the approach — what it decided and why, what it rejected, what it has
 learned — without SSHing into the VPS.
 
-Every command is read-only except /pause and /resume, and even those cannot
-open a position or move money: pause only stops NEW entries. Open positions
-keep their stops and targets while paused, because abandoning risk management
-on a running position is never the safe interpretation of "pause".
+STRICTLY READ-ONLY. There is no command that opens, closes, pauses, or resizes
+anything. This is a deliberate security property, not an oversight: the chat
+surface is the one part of the system exposed to the open internet, so the
+worst outcome of it being compromised is that someone reads your P&L. Trading
+decisions come from the model and the risk gate, and nothing else can reach
+them. To stop the bot, stop the service on the VPS.
 
 Commands are only accepted from the configured chat id (enforced in
 notify.poll_commands), and every reply is best-effort — a Telegram failure is
@@ -19,31 +21,17 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
 
-HELP = """Commands:
-/status — mode, equity, open positions, paused?
+HELP = """I only report — I take no instructions here.
+
+/status — mode, equity, open positions
 /positions — open positions with live P&L
 /why — the last decision and its reasoning
 /rejected — recent ideas the risk gate blocked
 /journal — the last few journal events
 /pnl — realised P&L, trade count, win rate
-/lessons — what the bot has learned so far
-/pause — stop opening NEW positions (stops still enforced)
-/resume — resume normal trading
+/lessons — what I have learned so far
 /help — this message"""
-
-
-@dataclass
-class Controls:
-    """Runtime switches a human can flip from Telegram.
-
-    Deliberately tiny and separate from Config: Config is the immutable set of
-    settings the process started with, this is the mutable set a human changes
-    while it runs.
-    """
-
-    paused: bool = False
 
 
 def _tail_events(path: str, limit: int, event: str | None = None) -> list[dict]:
@@ -98,13 +86,12 @@ class CommandHandler:
     so every answer reflects the bot's state at the moment you ask.
     """
 
-    def __init__(self, cfg, positions, day, paper, book, controls, equity_fn, price_fn):
+    def __init__(self, cfg, positions, day, paper, book, equity_fn, price_fn):
         self.cfg = cfg
         self.positions = positions
         self.day = day
         self.paper = paper
         self.book = book
-        self.controls = controls
         self._equity = equity_fn
         self._price = price_fn
 
@@ -117,9 +104,7 @@ class CommandHandler:
         except Exception as exc:  # noqa: BLE001 - a status query must not crash
             return f"Could not read equity: {exc}"
 
-        state = "PAUSED (no new entries)" if self.controls.paused else "running"
-        if self.day.halted:
-            state = f"HALTED — {self.day.halt_reason}"
+        state = f"HALTED — {self.day.halt_reason}" if self.day.halted else "running"
 
         lines = [
             f"{mode} · {self.cfg.interval} candles · {state}",
@@ -268,22 +253,6 @@ class CommandHandler:
             lines.append(f"• {lesson.text}{seen}")
         return f"{len(self.book.lessons)} lesson(s):\n" + "\n".join(lines)
 
-    def pause(self) -> str:
-        if self.controls.paused:
-            return "Already paused."
-        self.controls.paused = True
-        return (
-            "⏸ Paused. No new positions will be opened.\n"
-            "Open positions keep their stops and targets — pausing does not "
-            "abandon risk management. /resume to restart."
-        )
-
-    def resume(self) -> str:
-        if not self.controls.paused:
-            return "Not paused."
-        self.controls.paused = False
-        return "▶️ Resumed. New entries allowed again."
-
     # --- dispatch ---------------------------------------------------------
 
     def handle(self, text: str) -> str:
@@ -298,14 +267,14 @@ class CommandHandler:
             "/journal": self.journal_tail,
             "/pnl": self.pnl,
             "/lessons": self.lessons,
-            "/pause": self.pause,
-            "/resume": self.resume,
             "/help": lambda: HELP,
             "/start": lambda: "Connected.\n\n" + HELP,
         }
         handler = handlers.get(command)
         if not handler:
-            return f"Unknown command {command!r}.\n\n{HELP}"
+            # Includes anything that sounds like an instruction. Say so plainly
+            # rather than leaving the impression that a command was accepted.
+            return f"I don't take instructions — I only report.\n\n{HELP}"
         try:
             return handler()
         except Exception as exc:  # noqa: BLE001 - a bad reply must not kill the loop

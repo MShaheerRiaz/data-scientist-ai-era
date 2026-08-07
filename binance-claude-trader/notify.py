@@ -26,6 +26,11 @@ import requests
 # (the journal tail, the lesson book) are cut rather than silently dropped.
 MAX_MESSAGE = 4000
 
+# How many "a stranger messaged your bot" warnings to send per process run.
+# Enough to tell you it is happening, few enough that it cannot become the
+# spam channel it is warning you about.
+MAX_REFUSAL_ALERTS = 3
+
 
 class TelegramNotifier:
     def __init__(self, token: str, chat_id: str, post_fn=None, get_fn=None):
@@ -37,6 +42,11 @@ class TelegramNotifier:
         # Telegram's cursor: acknowledging update N stops it being redelivered.
         # Starts as None so the first poll takes whatever is pending.
         self._offset: int | None = None
+        # Chat ids that have messaged the bot and been refused. Kept so you are
+        # told once that someone found it, and capped so a stranger cycling
+        # accounts cannot turn your alerts into a spam channel.
+        self._refused_chats: set[str] = set()
+        self._refusal_alerts = 0
 
     def send(self, text: str) -> bool:
         """Send one message. Returns False on any failure, never raises."""
@@ -97,11 +107,30 @@ class TelegramNotifier:
             if not text:
                 continue
             if chat_id != str(self.chat_id):
-                print(f"[notify] ignoring message from unauthorised chat {chat_id}")
+                self._refuse(chat_id)
                 continue
             texts.append(text)
 
         return texts
+
+    def _refuse(self, chat_id: str) -> None:
+        """Drop a message from an unauthorised chat, telling you the first few
+        times it happens.
+
+        The stranger gets no reply at all — not even an error — so the bot
+        gives away nothing, not even that it is running.
+        """
+        print(f"[notify] refused message from unauthorised chat {chat_id}")
+        if chat_id in self._refused_chats or self._refusal_alerts >= MAX_REFUSAL_ALERTS:
+            return
+        self._refused_chats.add(chat_id)
+        self._refusal_alerts += 1
+        self.send(
+            f"🔒 Someone else messaged this bot (chat id {chat_id}). "
+            f"They were ignored and got no reply. Nothing was exposed.\n"
+            f"If this keeps happening, revoke the token with @BotFather "
+            f"and put the new one in .env."
+        )
 
 
 def notifier_from_config(cfg) -> TelegramNotifier | None:

@@ -1,11 +1,14 @@
 """Tests for the two-way Telegram interface.
 
-Two things matter most here and both are pinned below:
+Three things matter most here and all are pinned below:
 
-  1. Only the configured chat can command the bot. Anyone who finds the bot's
-     username can message it, so an unauthorised /pause must be discarded —
-     while still being acknowledged, or Telegram redelivers it forever.
-  2. No command can raise. The handler runs inside the trading loop; an
+  1. The interface is read-only. No message from any chat can open, close, or
+     pause anything — the chat surface is the part of the system exposed to
+     the open internet, so the worst a compromise can do is leak a P&L figure.
+  2. Only the configured chat gets answers. Anyone who finds the bot's
+     username can message it, so a stranger must get nothing back — while
+     still being acknowledged, or Telegram redelivers them forever.
+  3. No command can raise. The handler runs inside the trading loop; an
      exception formatting a reply must never become an exception that stops
      managing a live position.
 """
@@ -23,7 +26,7 @@ from config import Config  # noqa: E402
 from lessons import LessonBook  # noqa: E402
 from notify import TelegramNotifier  # noqa: E402
 from risk import DayState, PaperAccount, Position  # noqa: E402
-from telegram_control import CommandHandler, Controls, _tail_events  # noqa: E402
+from telegram_control import CommandHandler, _tail_events  # noqa: E402
 
 
 class _Response:
@@ -62,14 +65,61 @@ def test_poll_ignores_messages_from_other_chats_but_still_acks_them():
     def fake_get(url, params=None, timeout=None):
         calls.append(params)
         if len(calls) == 1:
-            return _Response({"result": [_update(7, "/pause", chat_id="999")]})
+            return _Response({"result": [_update(7, "/status", chat_id="999")]})
         return _Response({"result": []})
 
-    n = TelegramNotifier("t", "42", get_fn=fake_get)
+    n = TelegramNotifier("t", "42", get_fn=fake_get, post_fn=lambda *a, **k: _Response())
     assert n.poll_commands() == []
     n.poll_commands()
     # Second poll advanced past the stranger's update.
     assert calls[1]["offset"] == 8
+
+
+def test_stranger_gets_no_reply_but_the_owner_is_warned_once():
+    """The stranger must learn nothing — not even that the bot is running.
+    The owner should be told, but only once per chat and only a few times
+    overall, so it cannot be turned into a spam channel."""
+    sent = []
+    update_id = [0]
+
+    def fake_get(url, params=None, timeout=None):
+        update_id[0] += 1
+        return _Response({"result": [_update(update_id[0], "hello?", chat_id="999")]})
+
+    def fake_post(url, json=None, timeout=None):
+        sent.append(json)
+        return _Response()
+
+    n = TelegramNotifier("t", "42", get_fn=fake_get, post_fn=fake_post)
+    for _ in range(5):
+        assert n.poll_commands() == []
+
+    # Every message went to the owner's chat, never the stranger's.
+    assert all(m["chat_id"] == "42" for m in sent)
+    # Warned once about that chat id, not five times.
+    assert len(sent) == 1
+    assert "999" in sent[0]["text"]
+
+
+def test_refusal_alerts_are_capped_across_many_chat_ids():
+    sent = []
+    counter = [0]
+
+    def fake_get(url, params=None, timeout=None):
+        counter[0] += 1
+        return _Response({"result": [_update(counter[0], "hi", chat_id=str(900 + counter[0]))]})
+
+    n = TelegramNotifier(
+        "t", "42", get_fn=fake_get, post_fn=lambda url, json=None, timeout=None: (
+            sent.append(json) or _Response()
+        ),
+    )
+    for _ in range(20):
+        n.poll_commands()
+
+    from notify import MAX_REFUSAL_ALERTS
+
+    assert len(sent) == MAX_REFUSAL_ALERTS
 
 
 def test_poll_advances_offset_so_commands_are_not_repeated():
@@ -118,7 +168,7 @@ def _handler(tmp: str, **cfg_kw):
     paper = PaperAccount(starting_equity=10_000.0)
     book = LessonBook(cfg.lessons_path, 25)
     return CommandHandler(
-        cfg, positions, day, paper, book, Controls(),
+        cfg, positions, day, paper, book,
         equity_fn=lambda: 10_000.0,
         price_fn=lambda symbol: 105.0,
     )
@@ -140,16 +190,15 @@ def test_status_reports_live_state():
         assert "0/3" in reply
 
 
-def test_status_reflects_pause_and_halt():
+def test_status_reports_the_kill_switch():
     with tempfile.TemporaryDirectory() as tmp:
         h = _handler(tmp)
-        h.controls.paused = True
-        assert "PAUSED" in h.handle("/status")
+        assert "running" in h.handle("/status")
 
         h.day.halted = True
         h.day.halt_reason = "daily loss breached"
-        # A halt is more serious than a pause and must be what you see.
-        assert "HALTED" in h.handle("/status")
+        reply = h.handle("/status")
+        assert "HALTED" in reply and "daily loss breached" in reply
 
 
 def test_positions_report_shows_r_multiple():
@@ -240,26 +289,45 @@ def test_journal_tail_renders_mixed_event_types():
         assert "ERROR in decide" in reply
 
 
-def test_pause_and_resume_toggle_controls():
+def test_no_command_can_act_on_the_account():
+    """The security property: the chat interface reports and nothing else.
+
+    If a command that acts is ever added, this test is the thing that should
+    stop it — deliberately including the ones that used to exist.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         h = _handler(tmp)
-        first = h.handle("/pause")
-        assert "Paused" in first
-        assert h.controls.paused is True
-        # The reply must say open risk is still supervised — pausing is easy to
-        # mistake for "the bot has stopped looking after my positions".
-        assert "stops and targets" in first
-        assert "Already paused" in h.handle("/pause")
+        h.positions["BTCUSDT"] = Position(
+            symbol="BTCUSDT", entry=100.0, stop=96.0, target=110.0,
+            quantity=12.5, opened_at="2026-08-07T10:00:00+00:00",
+        )
+        before = dict(h.positions)
 
-        assert "Resumed" in h.handle("/resume")
-        assert h.controls.paused is False
-        assert "Not paused" in h.handle("/resume")
+        for attempt in (
+            "/pause", "/resume", "/stop", "/close", "/close BTCUSDT",
+            "/buy BTCUSDT", "/sell", "/panic", "sell everything now",
+        ):
+            reply = h.handle(attempt)
+            assert "only report" in reply, f"{attempt!r} was not refused"
+
+        assert h.positions == before
+        assert h.day.realised_pnl == 0.0
+
+        # And no acting command is even wired up.
+        for name in ("pause", "resume", "close", "open_position", "buy", "sell"):
+            assert not hasattr(h, name), f"CommandHandler grew an acting method: {name}"
 
 
-def test_unknown_command_returns_help_not_an_error():
+def test_status_has_no_paused_state_to_report():
+    with tempfile.TemporaryDirectory() as tmp:
+        reply = _handler(tmp).handle("/status")
+        assert "PAUSE" not in reply.upper()
+
+
+def test_unknown_command_says_it_takes_no_instructions():
     with tempfile.TemporaryDirectory() as tmp:
         reply = _handler(tmp).handle("/nonsense")
-        assert "Unknown command" in reply
+        assert "only report" in reply
         assert "/status" in reply
 
 

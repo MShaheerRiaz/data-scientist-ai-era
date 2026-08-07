@@ -29,7 +29,6 @@ from executor import Executor  # noqa: E402
 from journal import Journal, StateStore  # noqa: E402
 from lessons import LessonBook  # noqa: E402
 from risk import DayState, PaperAccount, RiskGate  # noqa: E402
-from telegram_control import Controls  # noqa: E402
 
 
 # --- stubs ----------------------------------------------------------------
@@ -167,13 +166,12 @@ class Harness:
         self.day = DayState()
         self.paper = PaperAccount(starting_equity=self.cfg.paper_equity)
         self.notifier = RecordingNotifier()
-        self.controls = Controls()
 
     def cycle(self):
         main.run_cycle(
             self.cfg, self.client, self.provider, self.gate, self.executor,
             self.journal, self.store, self.positions, self.day, self.paper,
-            self.book, None, notifier=self.notifier, controls=self.controls,
+            self.book, None, notifier=self.notifier,
         )
 
     def journal_events(self) -> list[dict]:
@@ -380,33 +378,6 @@ def test_notifications_fire_on_open_close_and_kill_switch():
         h.cycle()
         assert len([m for m in h.notifier.messages if "halted" in m]) == 1
         assert len(h.notifier.messages) == before + 2
-
-
-def test_pause_blocks_new_entries_but_still_manages_open_risk():
-    """The dangerous misreading of /pause would be "stop doing everything",
-    leaving a live position with nobody watching its stop. Pausing must stop
-    new entries only."""
-    with tempfile.TemporaryDirectory() as tmp:
-        h = Harness(tmp)
-        h.provider.decisions = [open_decision()]
-        h.cycle()
-        assert "BTCUSDT" in h.positions
-        assert h.provider.decide_calls == 1
-
-        h.controls.paused = True
-        h.client.current_price["BTCUSDT"] = 95.0  # stop hit while paused
-        h.cycle()
-
-        # The stop was honoured...
-        assert "BTCUSDT" not in h.positions
-        assert round(h.day.realised_pnl, 2) == -62.50
-        # ...and no model call was made, so a paused bot also costs nothing.
-        assert h.provider.decide_calls == 1
-
-        h.controls.paused = False
-        h.provider.decisions = [none_decision()]
-        h.cycle()
-        assert h.provider.decide_calls == 2
 
 
 def test_symbol_allowlist_restricts_universe_and_gate():
