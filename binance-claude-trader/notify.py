@@ -31,6 +31,11 @@ MAX_MESSAGE = 4000
 # spam channel it is warning you about.
 MAX_REFUSAL_ALERTS = 3
 
+# Command polling shares the loop with the exit watcher, so this timeout is an
+# upper bound on how long a Telegram problem can delay the next stop check.
+# Kept well under POLL_SECONDS on purpose: chat is a convenience, stops are not.
+POLL_HTTP_TIMEOUT = 5
+
 
 class TelegramNotifier:
     def __init__(self, token: str, chat_id: str, post_fn=None, get_fn=None):
@@ -69,10 +74,14 @@ class TelegramNotifier:
     def poll_commands(self) -> list[str]:
         """Return new message texts sent to the bot by the configured chat.
 
-        Short-polls: timeout=0 so this returns immediately and never stalls the
-        trading loop. Anyone who discovers the bot's username can message it,
-        so messages from any chat other than the configured one are discarded —
-        this is the only thing standing between a stranger and /pause.
+        Short-polls: Telegram's own timeout is 0 so the request returns
+        immediately, and the HTTP timeout is deliberately short. This call sits
+        in the same loop as the exit watcher, so a hung Telegram connection
+        delays the next stop check by however long it blocks — a chat feature
+        must never be able to postpone risk management by more than a moment.
+
+        Messages from any chat other than the configured one are discarded;
+        that check is the whole of the bot's privacy.
 
         Returns an empty list on any failure. Never raises.
         """
@@ -83,7 +92,7 @@ class TelegramNotifier:
             resp = self._get(
                 f"https://api.telegram.org/bot{self.token}/getUpdates",
                 params=params,
-                timeout=15,
+                timeout=POLL_HTTP_TIMEOUT,
             )
             if resp.status_code != 200:
                 print(f"[notify] getUpdates HTTP {resp.status_code}")

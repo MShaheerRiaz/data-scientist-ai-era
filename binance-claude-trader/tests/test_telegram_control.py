@@ -131,6 +131,27 @@ def test_poll_advances_offset_so_commands_are_not_repeated():
     assert n._offset == 4
 
 
+def test_poll_timeout_cannot_delay_the_exit_watcher():
+    """Command polling shares the loop with stop enforcement, so a hung
+    Telegram connection delays the next stop check by exactly this timeout.
+    It must stay well under POLL_SECONDS — chat is a convenience, stops are
+    not."""
+    from config import RiskLimits  # noqa: F401  (kept for symmetry with cfg tests)
+    from notify import POLL_HTTP_TIMEOUT
+
+    seen = {}
+
+    def fake_get(url, params=None, timeout=None):
+        seen["timeout"] = timeout
+        return _Response()
+
+    TelegramNotifier("t", "42", get_fn=fake_get).poll_commands()
+    assert seen["timeout"] == POLL_HTTP_TIMEOUT
+    assert POLL_HTTP_TIMEOUT <= 10, (
+        "a Telegram hang would postpone risk management by this many seconds"
+    )
+
+
 def test_poll_swallows_network_errors():
     def exploding_get(*a, **k):
         raise ConnectionError("no network")
