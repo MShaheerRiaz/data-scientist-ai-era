@@ -11,7 +11,7 @@ both be flipped before a single real order can be sent.
 
 ## How a cycle works
 
-Once per closed candle (15m by default):
+Once per closed candle (1h recommended; set via `CANDLE_INTERVAL`):
 
 ```
 1. check exits      stops and targets on open positions are honoured first
@@ -125,6 +125,13 @@ off the last closed candle; if the market has already run past half the stop
 distance from the intended entry — or through the stop or target outright —
 the executor refuses the trade and journals a `skip` instead of buying bad
 slippage. This applies in paper and live mode alike.
+
+**Thinking and protecting run on different clocks.** Decisions happen once
+per closed candle (`CANDLE_INTERVAL`, recommended 1h). Stops and targets are
+price levels, not candle events — while positions are open they are checked
+every `POLL_SECONDS` (default 30s), so an exit fires within about half a
+minute of its level being touched, whichever decision interval you use. This
+is what makes the cheaper, calmer 1h interval safe to recommend.
 
 **Stops are enforced by this process, not by the exchange.** There is no
 resting stop order on Binance. If the bot is not running, your stops are not

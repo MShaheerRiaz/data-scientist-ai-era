@@ -142,6 +142,39 @@ def review_closed_trade(
         print(f"         {verb}: {review['lesson']}")
 
 
+def manage_exits(
+    cfg: Config,
+    provider: AnthropicProvider,
+    executor: Executor,
+    journal: Journal,
+    store: StateStore,
+    positions: dict,
+    day,
+    paper,
+    book: LessonBook,
+) -> int:
+    """Honour stops and targets on open positions. Returns how many closed.
+
+    Called at the top of every decision cycle AND every POLL_SECONDS while the
+    loop sleeps between candles. That second call site is the point: it
+    decouples the *thinking* timeframe from the *protection* timeframe, so a
+    stop is acted on within ~30 seconds of being hit even when decisions are
+    made on 1h candles.
+    """
+    closed = executor.check_exits(positions)
+    for position, reason, pnl in closed:
+        day.realised_pnl += pnl
+        paper.realised_total += pnl
+        print(f"[main] closed {position.symbol} on {reason}, day pnl {day.realised_pnl:.2f}")
+        exit_price = position.stop if reason == "stop" else position.target
+        review_closed_trade(
+            cfg, provider, book, journal, position, reason, pnl, exit_price
+        )
+    if closed:
+        store.save(positions, day, paper)
+    return len(closed)
+
+
 def run_cycle(
     cfg: Config,
     client: BinanceSpot,
@@ -157,14 +190,7 @@ def run_cycle(
     scanner,
 ) -> None:
     # 1. Honour stops and targets before considering anything new.
-    for position, reason, pnl in executor.check_exits(positions):
-        day.realised_pnl += pnl
-        paper.realised_total += pnl
-        print(f"[main] closed {position.symbol} on {reason}, day pnl {day.realised_pnl:.2f}")
-        exit_price = position.stop if reason == "stop" else position.target
-        review_closed_trade(
-            cfg, provider, book, journal, position, reason, pnl, exit_price
-        )
+    manage_exits(cfg, provider, executor, journal, store, positions, day, paper, book)
     store.save(positions, day, paper)
 
     # 2. Equity drives both sizing and the kill switch. In paper mode this must
@@ -362,13 +388,23 @@ def main() -> int:
 
         sleep_for = seconds_to_next_close(cfg.interval)
         print(f"[main] sleeping {sleep_for:.0f}s until next {cfg.interval} close")
-        # Wake periodically so a shutdown signal is honoured promptly rather
-        # than after a full bar.
+        # Wake every POLL_SECONDS: to honour a shutdown signal promptly, and —
+        # when positions are open — to enforce stops and targets between
+        # candles. Without this, a stop hit one minute into an hourly bar
+        # would not be acted on for another 59 minutes.
         slept = 0.0
         while slept < sleep_for and _running:
             chunk = min(cfg.poll_seconds, sleep_for - slept)
             time.sleep(chunk)
             slept += chunk
+            if positions and _running:
+                try:
+                    manage_exits(
+                        cfg, provider, executor, journal, store,
+                        positions, day, paper, book,
+                    )
+                except Exception as exc:  # noqa: BLE001 - watcher must not kill the loop
+                    journal.error("exit_watch", str(exc))
 
     journal.write("stop", {"open_positions": len(positions)})
     store.save(positions, day, paper)

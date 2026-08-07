@@ -310,6 +310,38 @@ def test_price_through_stop_at_execution_is_skipped():
         assert skip["reason"] == "price_beyond_levels"
 
 
+def test_exits_are_enforced_between_candles():
+    """The intra-bar watcher: stops must fire from the sleep loop's
+    manage_exits call, without waiting for the next decision cycle.
+
+    This is what makes the 1h decision interval safe — protection runs on
+    the POLL_SECONDS clock, not the candle clock.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        h = Harness(tmp)
+        h.provider.decisions = [open_decision()]
+        h.cycle()
+        assert "BTCUSDT" in h.positions
+
+        # Price hits the stop mid-bar. Call manage_exits exactly as the sleep
+        # loop does — no decision cycle, no model call.
+        h.client.current_price["BTCUSDT"] = 95.0
+        closed = main.manage_exits(
+            h.cfg, h.provider, h.executor, h.journal, h.store,
+            h.positions, h.day, h.paper, h.book,
+        )
+
+        assert closed == 1
+        assert "BTCUSDT" not in h.positions
+        assert round(h.day.realised_pnl, 2) == -62.50
+        # No decision was requested — only the exit was managed.
+        assert h.provider.decide_calls == 1
+        # And the close was persisted immediately, not left for the next cycle.
+        stored, stored_day, _ = h.store.load()
+        assert stored == {}
+        assert round(stored_day.realised_pnl, 2) == -62.50
+
+
 def test_full_session_survives_restart():
     with tempfile.TemporaryDirectory() as tmp:
         h = Harness(tmp)
