@@ -367,7 +367,13 @@ def main() -> int:
     client = BinanceSpot(cfg.binance_key, cfg.binance_secret, cfg.base_url)
     journal = Journal(cfg.journal_path)
     store = StateStore(cfg.state_path)
-    provider = AnthropicProvider(cfg.anthropic_key, cfg.model, cfg.effort)
+    # A cached system prompt is only worth its write premium if the entry is
+    # still alive when the next decision lands. The TTL is 1h, so anything from
+    # 1h bars upward would pay 2x on every write and read back nothing.
+    cache_system = _INTERVAL_SECONDS.get(cfg.interval, 900) < 3600
+    provider = AnthropicProvider(
+        cfg.anthropic_key, cfg.model, cfg.effort, cache_system=cache_system
+    )
     gate = RiskGate(cfg.risk)
     executor = Executor(client, journal, cfg.dry_run)
     book = LessonBook(cfg.lessons_path, cfg.max_lessons)
@@ -420,7 +426,8 @@ def main() -> int:
     print(
         f"[main] review={'on' if cfg.enable_review else 'off'} "
         f"news={'on' if cfg.enable_news else 'off'} "
-        f"telegram={'on' if notifier else 'off'}"
+        f"telegram={'on' if notifier else 'off'} "
+        f"prompt-cache={'on' if cache_system else 'off (bar >= cache TTL)'}"
     )
     if notifier:
         notifier.send(

@@ -2,12 +2,19 @@
 
 Three things this file does that a generic OpenAI-compatible shim cannot:
 
-1. **Prompt caching with a 1h TTL.** The system prompt is stable and large; the
-   market payload changes every bar. The cache breakpoint sits on the last
-   system block so the prefix is reused. The TTL is 1h rather than the default
-   5m because a 15m loop wakes up *after* a 5m cache has already expired —
-   with the default you would pay the write premium every single bar and never
-   record a single read.
+1. **Prompt caching with a 1h TTL — but only when the cadence can use it.**
+   The system prompt is stable and large; the market payload changes every bar.
+   The breakpoint sits on the last system block so the prefix is reused, with a
+   1h TTL rather than the default 5m because a 15m loop wakes up *after* a 5m
+   cache has already expired.
+
+   The subtlety: a cache *write* costs 2x base at 1h TTL (1.25x at 5m), so a
+   breakpoint that never gets read is strictly more expensive than not caching
+   at all. On a 1h decision interval the entry expires at almost exactly the
+   moment the next call arrives — you would pay the write premium every cycle
+   and bank roughly no reads. So caching is enabled only when the bar is
+   shorter than the TTL; at 1h and above the loop pays plain input price, which
+   is the cheaper of the two. See `cache_system` below.
 2. **Native structured outputs** (`output_config.format`), so the response is
    schema-valid JSON rather than prose we have to regex.
 3. **Refusal handling.** A declined request returns HTTP 200 with
@@ -26,7 +33,13 @@ from llm.base import ProviderRefusal
 
 
 class AnthropicProvider:
-    def __init__(self, api_key: str, model: str = "claude-opus-5", effort: str = "medium"):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "claude-opus-5",
+        effort: str = "medium",
+        cache_system: bool = True,
+    ):
         # Explicit timeout: the SDK default is 10 minutes, most of a 15m bar.
         # A hung call should fail this cycle and let the next bar try again,
         # not silently consume the trading window. The SDK retries 429/5xx
@@ -34,6 +47,9 @@ class AnthropicProvider:
         self._client = anthropic.Anthropic(api_key=api_key, timeout=300.0)
         self._model = model
         self._effort = effort
+        # False on slow bars, where a cache entry expires before it is read and
+        # the write premium is pure loss. main.py decides from the interval.
+        self._cache_system = cache_system
 
     def decide(
         self,
@@ -41,22 +57,20 @@ class AnthropicProvider:
         market_payload: dict[str, Any],
         schema: dict[str, Any],
     ) -> tuple[dict[str, Any], dict[str, Any]]:
+        # Stable prefix. Nothing volatile (no timestamps, no symbol list) may be
+        # interpolated here, or the cache is invalidated every call and the
+        # breakpoint becomes pure cost.
+        system_block: dict[str, Any] = {"type": "text", "text": system_prompt}
+        if self._cache_system:
+            system_block["cache_control"] = {"type": "ephemeral", "ttl": "1h"}
+
         response = self._client.messages.create(
             model=self._model,
             # Thinking is on by default on Claude Opus 5 and counts against
             # max_tokens alongside the response text. Too tight a cap truncates
             # the JSON mid-decision; 16000 leaves comfortable headroom.
             max_tokens=16000,
-            # Stable prefix, cached. Nothing volatile (no timestamps, no symbol
-            # list) may be interpolated here or the cache is invalidated every
-            # call and the breakpoint becomes pure cost.
-            system=[
-                {
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
-                }
-            ],
+            system=[system_block],
             output_config={
                 "effort": self._effort,
                 "format": {"type": "json_schema", "schema": schema},

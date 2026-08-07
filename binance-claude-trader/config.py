@@ -188,8 +188,14 @@ class Config:
     # News brief cadence. Deliberately far slower than the trading loop —
     # headlines change on the scale of hours, not 15-minute bars, and
     # refetching per bar would multiply cost for the same information.
+    #
+    # 4h rather than 1h because each brief is a web-search call, and at hourly
+    # cadence the news scanner costs about as much as the entire decision loop
+    # for information that barely moves in between. Volume anomalies — the
+    # actual entry signal — are computed locally every cycle and cost nothing;
+    # news only explains them.
     enable_news: bool = True
-    news_refresh_seconds: int = 3600
+    news_refresh_seconds: int = 14400
 
     risk: RiskLimits = field(default_factory=RiskLimits)
 
@@ -253,7 +259,7 @@ class Config:
             enable_review=_env_bool("ENABLE_REVIEW", True),
             max_lessons=_env_int("MAX_LESSONS", 25),
             enable_news=_env_bool("ENABLE_NEWS", True),
-            news_refresh_seconds=_env_int("NEWS_REFRESH_SECONDS", 3600),
+            news_refresh_seconds=_env_int("NEWS_REFRESH_SECONDS", 14400),
             # Only env vars that are actually set are passed through; every
             # default comes from RiskLimits itself.
             risk=RiskLimits(

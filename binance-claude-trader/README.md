@@ -355,19 +355,59 @@ than by hiding it:
 
 ## Cost
 
-~1,880 tokens of market payload plus a ~700-token system prompt, and ~400
-tokens out per decision. At 96 decisions/day on 15m bars:
+Measured token sizes: the system prompt is **1,331 tokens**, each symbol
+snapshot is **171**, so a 12-symbol payload is ~2,050. With positions, lessons
+and the news brief, a decision request is roughly **4,300 tokens in**. Output is
+the uncertain half — thinking is on by default on Opus 5 and shares the budget
+with the JSON — call it **~1,250 out** at `medium` effort.
 
-| Model | Per decision | Per day | Per month |
-|---|---|---|---|
-| `claude-opus-5` | ~$0.023 | ~$2.20 | ~$66 |
-| `claude-sonnet-5` | ~$0.009 | ~$0.86 | ~$26 |
+At `claude-opus-5` list price ($5 / $25 per million), 1h bars, 12 symbols:
 
-Prompt caching cuts the input side substantially once warm. The system prompt is
-cached with a **1-hour TTL** rather than the 5-minute default, because a 15m
-loop wakes up after a 5-minute cache has already expired — with the default you
-would pay the write premium on every bar and never record a single cache read.
-Check `cache_read_input_tokens` in the journal to confirm it is working.
+| Component | Cadence | ~Monthly |
+|---|---|---|
+| Decisions | 720/mo (hourly) | **~$38** |
+| News briefs (web search) | 180/mo (4-hourly) | **~$9** + search fees |
+| Post-trade reviews | ~1 per closed trade | **~$2** |
+| **Total** | | **~$50/month** |
+
+On 15m bars the decision line quadruples to ~$150/month; everything else is
+unchanged. `claude-sonnet-5` is roughly 60% of these numbers.
+
+**Do not trust the table — measure.** Output tokens dominate at a 5:1 price
+ratio and depend on how much the model thinks, which varies by market. Every
+call's real usage is journalled, so after a day of running:
+
+```bash
+python analyze.py     # API USAGE AND COST — actual spend and a run-rate projection
+```
+
+That reads `input_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`
+and `output_tokens` out of the journal and prices them properly (note the API's
+`input_tokens` is the *uncached remainder* — cached reads and writes are
+reported separately and have to be added, not assumed included).
+
+### The three levers, biggest first
+
+1. **`CANDLE_INTERVAL`** — 1h instead of 15m is a 4× cut on the largest line.
+2. **`NEWS_REFRESH_SECONDS`** — each brief is a web-search call. The default is
+   4h; at 1h the news scanner costs about as much as the entire decision loop,
+   for headlines that barely move in between. Volume anomalies (the actual entry
+   signal) are computed locally every cycle and cost nothing.
+3. **`CLAUDE_EFFORT`** — `low` thinks less, so it cuts the output side hardest.
+   Test it against `analyze.py` before keeping it; cheaper decisions that are
+   worse decisions are not a saving.
+
+### A note on prompt caching
+
+The system prompt is cached with a **1-hour TTL** rather than the 5-minute
+default — but **only when the bar is shorter than an hour**. This is deliberate
+and initially counterintuitive: a cache *write* bills at 2× base on a 1h TTL, so
+a breakpoint that is never read costs strictly more than not caching at all. On
+1h bars the entry expires at almost exactly the moment the next decision lands,
+so the loop would pay the premium every cycle and bank no reads. `main.py`
+therefore enables caching only below 1h, and prints `prompt-cache=on|off` at
+startup. `analyze.py` reports the hit rate and warns if writes are outrunning
+reads.
 
 ---
 

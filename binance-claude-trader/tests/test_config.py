@@ -218,6 +218,14 @@ def test_symbol_allowlist_parses_and_uppercases():
     assert load().symbol_allowlist == ()
 
 
+def test_news_refresh_defaults_to_four_hours():
+    """Each brief is a web-search call. At hourly cadence the news scanner
+    costs about as much as the entire decision loop, for headlines that barely
+    move in between."""
+    assert load().news_refresh_seconds == 14400
+    assert load(NEWS_REFRESH_SECONDS=3600).news_refresh_seconds == 3600
+
+
 def test_telegram_settings_parse_and_default_off():
     cfg = load()
     assert cfg.telegram_token == "" and cfg.telegram_chat_id == ""

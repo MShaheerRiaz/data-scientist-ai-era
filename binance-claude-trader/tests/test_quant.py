@@ -11,6 +11,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from analyze import decision_cost, journal_span_hours  # noqa: E402
+
 from quant import (  # noqa: E402
     breakeven_win_rate,
     expectancy_r,
@@ -207,6 +209,58 @@ def test_large_edges_need_fewer_trades():
 
 def test_no_edge_is_never_significant():
     assert trades_needed_for_significance(0.0) == -1
+
+
+
+# --- cost accounting --------------------------------------------------------
+
+
+def test_decision_cost_counts_cache_reads_and_writes_separately():
+    """`input_tokens` from the API is the uncached remainder only — cached
+    reads and writes are reported alongside it and must be added, not assumed
+    included. Getting this wrong understates spend on every cached call."""
+    usage = [{
+        "input_tokens": 1_000_000,
+        "cache_read_input_tokens": 1_000_000,
+        "cache_creation_input_tokens": 1_000_000,
+        "output_tokens": 1_000_000,
+    }]
+    # opus-5: $5 in / $25 out. 1M each of: full-price in, 0.1x read, 2x write,
+    # plus 1M output -> 5 + 0.5 + 10 + 25 = 40.50
+    assert round(decision_cost(usage), 2) == 40.50
+
+
+def test_cache_write_costs_more_than_not_caching():
+    """The reason caching is disabled on slow bars: a write that is never read
+    bills at 2x, so it is strictly worse than paying plain input price."""
+    tokens = 100_000
+    written = decision_cost([{"cache_creation_input_tokens": tokens}])
+    uncached = decision_cost([{"input_tokens": tokens}])
+    assert written > uncached
+    assert round(written / uncached, 2) == 2.0
+
+
+def test_decision_cost_handles_missing_usage_fields():
+    assert decision_cost([{}]) == 0.0
+    assert decision_cost([]) == 0.0
+
+
+def test_decision_cost_uses_the_requested_model_price():
+    usage = [{"input_tokens": 1_000_000, "output_tokens": 1_000_000}]
+    assert round(decision_cost(usage, "claude-opus-5"), 2) == 30.00
+    assert round(decision_cost(usage, "claude-sonnet-5"), 2) == 18.00
+    # Unknown model falls back to the default rather than crashing a report.
+    assert round(decision_cost(usage, "some-future-model"), 2) == 30.00
+
+
+def test_journal_span_hours():
+    records = [
+        {"ts": "2026-08-07T10:00:00+00:00"},
+        {"ts": "2026-08-07T22:00:00+00:00"},
+    ]
+    assert journal_span_hours(records) == 12.0
+    assert journal_span_hours([{"ts": "2026-08-07T10:00:00+00:00"}]) == 0.0
+    assert journal_span_hours([]) == 0.0
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import sys
 from collections import Counter
+from datetime import datetime
 
 from quant import (
     breakeven_win_rate,
@@ -45,6 +46,51 @@ def load(path: str) -> list[dict]:
         print(f"No journal at {path}. Run the bot first.")
         sys.exit(1)
     return records
+
+
+# Published list price per million tokens, as (input, output). Cache reads bill
+# at 0.1x the input rate; a 1h-TTL cache write bills at 2x. Update alongside any
+# model change — a stale table silently misreports spend.
+MODEL_PRICING = {
+    "claude-opus-5": (5.00, 25.00),
+    "claude-opus-4-8": (5.00, 25.00),
+    "claude-sonnet-5": (3.00, 15.00),
+    "claude-haiku-4-5": (1.00, 5.00),
+    "claude-fable-5": (10.00, 50.00),
+}
+CACHE_READ_MULTIPLIER = 0.1
+CACHE_WRITE_MULTIPLIER = 2.0  # 1h TTL; the 5m default would be 1.25
+
+
+def decision_cost(usages: list[dict], model: str = "claude-opus-5") -> float:
+    """Dollar cost of the journalled decision calls.
+
+    Note `input_tokens` from the API is the *uncached remainder* — cached reads
+    and writes are reported separately and must be added, not assumed included.
+    """
+    in_rate, out_rate = MODEL_PRICING.get(model, MODEL_PRICING["claude-opus-5"])
+    total = 0.0
+    for u in usages:
+        total += u.get("input_tokens", 0) * in_rate
+        total += u.get("cache_read_input_tokens", 0) * in_rate * CACHE_READ_MULTIPLIER
+        total += (
+            u.get("cache_creation_input_tokens", 0) * in_rate * CACHE_WRITE_MULTIPLIER
+        )
+        total += u.get("output_tokens", 0) * out_rate
+    return total / 1_000_000
+
+
+def journal_span_hours(records: list[dict]) -> float:
+    """Wall-clock hours between the first and last journalled event."""
+    stamps = sorted(r["ts"] for r in records if r.get("ts"))
+    if len(stamps) < 2:
+        return 0.0
+    try:
+        start = datetime.fromisoformat(stamps[0])
+        end = datetime.fromisoformat(stamps[-1])
+    except ValueError:
+        return 0.0
+    return (end - start).total_seconds() / 3600
 
 
 def money(multiple: float) -> str:
@@ -98,19 +144,41 @@ def main() -> int:
 
     usages = [d["usage"] for d in decisions if d.get("usage")]
     if usages:
-        section("API USAGE")
+        section("API USAGE AND COST")
         total_in = sum(u.get("input_tokens", 0) for u in usages)
         total_cached = sum(u.get("cache_read_input_tokens", 0) for u in usages)
+        total_write = sum(u.get("cache_creation_input_tokens", 0) for u in usages)
         total_out = sum(u.get("output_tokens", 0) for u in usages)
-        print(f"input tokens   {total_in:,}")
+        print(f"decision calls {len(usages):,}")
+        print(f"input tokens   {total_in:,}  (uncached)")
         print(f"cache reads    {total_cached:,}")
+        print(f"cache writes   {total_write:,}")
         print(f"output tokens  {total_out:,}")
-        if total_in + total_cached:
-            hit_rate = total_cached / (total_in + total_cached)
-            print(f"cache hit rate {hit_rate:.0%}")
+
+        cost = decision_cost(usages)
+        per_call = cost / len(usages)
+        print(f"\nspent so far   ${cost:,.2f}   (${per_call:.4f} per decision)")
+
+        # Extrapolate from the observed rate rather than assuming a cadence —
+        # a bot that was down half the period would otherwise look cheap.
+        span_hours = journal_span_hours(records)
+        if span_hours >= 1:
+            print(
+                f"run rate       ${cost / span_hours * 24:,.2f}/day  "
+                f"${cost / span_hours * 24 * 30:,.2f}/month  "
+                f"(over {span_hours:,.0f}h of journal)"
+            )
+        print("\nDecisions only — the news scanner and post-trade reviews are")
+        print("billed separately and are not visible in this file.")
+
+        if total_cached + total_write:
+            hit_rate = total_cached / (total_cached + total_write)
+            print(f"\ncache hit rate {hit_rate:.0%}")
             if hit_rate < 0.3 and len(usages) > 5:
-                print("  WARNING: low cache hit rate. Something volatile is")
-                print("  probably being interpolated into the system prompt.")
+                print("  Writes without reads cost MORE than not caching at all")
+                print("  (a 1h-TTL write bills at 2x). Either the bar is longer")
+                print("  than the cache TTL, or something volatile is being")
+                print("  interpolated into the system prompt.")
 
     if not closes:
         section("EDGE")
