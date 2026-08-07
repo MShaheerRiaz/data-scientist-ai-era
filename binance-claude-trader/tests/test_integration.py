@@ -133,7 +133,7 @@ def open_decision(symbol="BTCUSDT", entry=100.0, stop=96.0, target=110.0) -> dic
 class Harness:
     """A fully wired paper-trading session against the stubs."""
 
-    def __init__(self, tmp: str):
+    def __init__(self, tmp: str, **overrides):
         self.cfg = Config(
             binance_key="", binance_secret="", testnet=False,
             anthropic_key="k", dry_run=True, paper_equity=10_000.0,
@@ -142,6 +142,7 @@ class Harness:
             lessons_path=os.path.join(tmp, "lessons.json"),
             enable_news=False,
             min_quote_volume=1_000_000.0,
+            **overrides,
         )
         self.client = StubBinance()
         self.provider = StubProvider()
@@ -340,6 +341,28 @@ def test_exits_are_enforced_between_candles():
         stored, stored_day, _ = h.store.load()
         assert stored == {}
         assert round(stored_day.realised_pnl, 2) == -62.50
+
+
+def test_symbol_allowlist_restricts_universe_and_gate():
+    """Pinning SYMBOL_ALLOWLIST must hold at both layers: the model only sees
+    allowlisted candidates, and even if it names something else anyway, the
+    risk gate refuses it."""
+    with tempfile.TemporaryDirectory() as tmp:
+        h = Harness(tmp, symbol_allowlist=("ETHUSDT",))
+        # The stub exchange lists BTCUSDT and ETHUSDT; the model disobeys the
+        # candidate list and asks for BTCUSDT.
+        h.provider.decisions = [open_decision(symbol="BTCUSDT")]
+        h.cycle()
+
+        # Layer 1: only the pinned symbol was offered as a candidate.
+        payload = h.provider.last_payload
+        assert {c["symbol"] for c in payload["candidates"]} == {"ETHUSDT"}
+
+        # Layer 2: the off-list open was rejected, not filled.
+        assert h.positions == {}
+        decision_events = [e for e in h.journal_events() if e["event"] == "decision"]
+        assert decision_events[-1]["approved"] is False
+        assert "not a tradable" in decision_events[-1]["verdict"]
 
 
 def test_full_session_survives_restart():

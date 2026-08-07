@@ -211,6 +211,13 @@ def test_invalid_effort_falls_back_to_medium():
     assert cfg.effort == "medium"
 
 
+def test_symbol_allowlist_parses_and_uppercases():
+    cfg = load(SYMBOL_ALLOWLIST="btcusdt, ethusdt")
+    assert cfg.symbol_allowlist == ("BTCUSDT", "ETHUSDT")
+    # Blank (the default) means no restriction — scan the liquid market.
+    assert load().symbol_allowlist == ()
+
+
 def test_stablecoin_pairs_are_denylisted():
     cfg = load()
     for pair in ("USDCUSDT", "FDUSDUSDT", "TUSDUSDT"):

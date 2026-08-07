@@ -28,6 +28,8 @@ def select_universe(client: BinanceSpot, cfg: Config) -> list[dict]:
             continue
         if symbol in cfg.symbol_denylist:
             continue
+        if cfg.symbol_allowlist and symbol not in cfg.symbol_allowlist:
+            continue
         if symbol.endswith(_LEVERAGED_SUFFIXES):
             continue
         if symbol not in tradable:

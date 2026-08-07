@@ -293,15 +293,19 @@ def run_cycle(
         return
 
     # action == "open"
+    # The allowlist is enforced here too, not just in candidate selection —
+    # the model could name any symbol, and "only trade what I pinned" must
+    # hold even against that.
+    allowed = client.tradable()
+    if cfg.symbol_allowlist:
+        allowed &= set(cfg.symbol_allowlist)
     verdict = gate.evaluate(
         decision=decision,
         equity=equity,
         positions=positions,
         day=day,
         denylist=cfg.symbol_denylist,
-        # Cached — select_universe already refreshed the catalogue this cycle,
-        # and load_filters() would re-download the whole exchangeInfo payload.
-        tradable_symbols=client.tradable(),
+        tradable_symbols=allowed,
     )
     journal.decision(decision, verdict.reason, verdict.approved, usage, equity)
 

@@ -137,6 +137,18 @@ def main() -> int:
     print(f"reward:risk    {reward_risk:.2f}")
     print(f"total pnl      {sum(pnls):+.2f}")
 
+    by_symbol: dict[str, list[float]] = {}
+    for f in closes:
+        by_symbol.setdefault(f.get("symbol", "?"), []).append(float(f["order"]["pnl"]))
+    if len(by_symbol) > 1:
+        section("EDGE BY SYMBOL")
+        print(f"{'symbol':<12} {'trades':>6} {'win rate':>9} {'total pnl':>11}")
+        for sym, ps in sorted(by_symbol.items(), key=lambda kv: -sum(kv[1])):
+            wins_s = sum(1 for p in ps if p > 0)
+            print(f"{sym:<12} {len(ps):>6} {wins_s / len(ps):>8.0%} {sum(ps):>+11.2f}")
+        print("\nThis answers the single-coin question empirically: if one symbol")
+        print("carries the edge, pin SYMBOL_ALLOWLIST to it and rerun.")
+
     if reward_risk <= 0:
         print("\nNot enough of both outcomes yet to compute an edge.")
         return 0

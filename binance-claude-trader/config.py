@@ -149,6 +149,11 @@ class Config:
     # market order would move the book.
     min_quote_volume: float = 20_000_000.0
     quote_asset: str = "USDT"
+    # If non-empty, the bot trades ONLY these symbols: the universe scan is
+    # restricted to them and the risk gate rejects anything else, even if the
+    # model asks for it. Leave empty to scan the liquid market.
+    # Example single-coin mode: SYMBOL_ALLOWLIST=BTCUSDT
+    symbol_allowlist: tuple[str, ...] = ()
     # Pairs never to trade regardless of what the model says. Leveraged tokens
     # and stablecoin-to-stablecoin pairs belong here.
     symbol_denylist: tuple[str, ...] = (
@@ -226,6 +231,11 @@ class Config:
             candles_per_symbol=_env_int("CANDLES_PER_SYMBOL", 120),
             universe_size=_env_int("UNIVERSE_SIZE", 12),
             min_quote_volume=_env_float("MIN_QUOTE_VOLUME", 20_000_000.0),
+            symbol_allowlist=tuple(
+                s.strip().upper()
+                for s in _env("SYMBOL_ALLOWLIST", "").split(",")
+                if s.strip()
+            ),
             dry_run=dry_run,
             paper_equity=_env_float("PAPER_EQUITY", 10_000.0),
             poll_seconds=_env_int("POLL_SECONDS", 30),
