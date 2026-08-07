@@ -25,6 +25,7 @@ from journal import Journal, StateStore
 from llm.anthropic_provider import AnthropicProvider
 from lessons import REVIEW_SCHEMA, REVIEW_SYSTEM_PROMPT, LessonBook, build_review_payload
 from llm.base import ProviderRefusal
+from notify import notifier_from_config
 from risk import PaperAccount, RiskGate
 from universe import build_snapshots, select_universe
 
@@ -152,6 +153,7 @@ def manage_exits(
     day,
     paper,
     book: LessonBook,
+    notifier=None,
 ) -> int:
     """Honour stops and targets on open positions. Returns how many closed.
 
@@ -166,6 +168,12 @@ def manage_exits(
         day.realised_pnl += pnl
         paper.realised_total += pnl
         print(f"[main] closed {position.symbol} on {reason}, day pnl {day.realised_pnl:.2f}")
+        if notifier:
+            emoji = "✅" if pnl >= 0 else "❌"
+            notifier.send(
+                f"{emoji} Closed {position.symbol} on {reason}\n"
+                f"P&L {pnl:+.2f} — day {day.realised_pnl:+.2f}"
+            )
         exit_price = position.stop if reason == "stop" else position.target
         review_closed_trade(
             cfg, provider, book, journal, position, reason, pnl, exit_price
@@ -188,9 +196,13 @@ def run_cycle(
     paper,
     book: LessonBook,
     scanner,
+    notifier=None,
 ) -> None:
     # 1. Honour stops and targets before considering anything new.
-    manage_exits(cfg, provider, executor, journal, store, positions, day, paper, book)
+    manage_exits(
+        cfg, provider, executor, journal, store, positions, day, paper, book,
+        notifier=notifier,
+    )
     store.save(positions, day, paper)
 
     # 2. Equity drives both sizing and the kill switch. In paper mode this must
@@ -198,9 +210,13 @@ def run_cycle(
     #    every position against a balance the run is not actually trading.
     equity = current_equity(cfg, client, positions, paper)
 
+    # Notify only on the transition into halted, not every cycle it stays so.
+    was_halted = day.halted
     kill = gate.check_kill_switch(day, equity)
     if not kill.approved:
         print(f"[main] {kill.reason} — no new positions this cycle.")
+        if notifier and not was_halted:
+            notifier.send(f"⛔ {kill.reason}\nNo new positions until the UTC day rolls.")
         store.save(positions, day, paper)
         return
 
@@ -284,6 +300,12 @@ def run_cycle(
         day.realised_pnl += pnl
         paper.realised_total += pnl
         positions.pop(symbol, None)
+        if notifier:
+            emoji = "✅" if pnl >= 0 else "❌"
+            notifier.send(
+                f"{emoji} Closed {symbol} on model instruction\n"
+                f"P&L {pnl:+.2f} — day {day.realised_pnl:+.2f}"
+            )
         review_closed_trade(
             cfg, provider, book, journal, position, "model_close", pnl,
             client.price(symbol),
@@ -320,6 +342,14 @@ def run_cycle(
 
     position = executor.open_long(decision, verdict)
     if position:
+        if notifier:
+            notifier.send(
+                f"🟢 Opened {position.symbol} long\n"
+                f"entry {position.entry:g}  stop {position.stop:g}  "
+                f"target {position.target:g}\n"
+                f"size {verdict.quote_amount:.2f} {cfg.quote_asset}, "
+                f"risking {verdict.risk_amount:.2f}"
+            )
         position.reasoning = decision.get("reasoning", "")
         position.entry_snapshot = next(
             (s for s in snapshot_dicts if s["symbol"] == position.symbol), {}
@@ -345,6 +375,7 @@ def main() -> int:
         if cfg.enable_news
         else None
     )
+    notifier = notifier_from_config(cfg)
 
     try:
         client.ping()
@@ -370,8 +401,14 @@ def main() -> int:
         print(f"[main] carrying {len(book.lessons)} lesson(s) from past trades")
     print(
         f"[main] review={'on' if cfg.enable_review else 'off'} "
-        f"news={'on' if cfg.enable_news else 'off'}"
+        f"news={'on' if cfg.enable_news else 'off'} "
+        f"telegram={'on' if notifier else 'off'}"
     )
+    if notifier:
+        notifier.send(
+            f"🤖 Bot started — {mode} / {order_mode}\n"
+            f"{cfg.interval} candles, {len(positions)} open position(s)"
+        )
 
     journal.write("start", {"mode": mode, "dry_run": cfg.dry_run, "model": cfg.model})
 
@@ -381,7 +418,7 @@ def main() -> int:
         try:
             run_cycle(
                 cfg, client, provider, gate, executor, journal, store,
-                positions, day, paper, book, scanner,
+                positions, day, paper, book, scanner, notifier=notifier,
             )
         except Exception as exc:  # noqa: BLE001 - a bad cycle must not end the run
             journal.error("cycle", str(exc))
@@ -405,7 +442,7 @@ def main() -> int:
                 try:
                     manage_exits(
                         cfg, provider, executor, journal, store,
-                        positions, day, paper, book,
+                        positions, day, paper, book, notifier=notifier,
                     )
                 except Exception as exc:  # noqa: BLE001 - watcher must not kill the loop
                     journal.error("exit_watch", str(exc))
@@ -419,6 +456,12 @@ def main() -> int:
             "Stops are enforced by this process — they are NOT resting on the "
             "exchange. Close them manually or restart the bot."
         )
+        if notifier:
+            notifier.send(
+                f"⚠️ Bot stopped with {len(positions)} open position(s): "
+                f"{', '.join(positions)}. Stops are NOT enforced while it is down "
+                f"— restart it or close them manually."
+            )
     print("[main] stopped.")
     return 0
 

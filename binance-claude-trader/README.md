@@ -286,6 +286,25 @@ jq -r 'select(.event=="fill" and .order.pnl) | .order.pnl' journal.jsonl | paste
 
 ---
 
+## Telegram notifications
+
+Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env` (setup steps are in
+`.env.example` and `notify.py` — about two minutes with @BotFather) and the bot
+messages your phone on the events that matter:
+
+- position opened (entry, stop, target, size, risk)
+- position closed (reason and P&L, plus the day's running total)
+- daily kill switch tripped (once, on the transition — not every cycle)
+- bot started, and bot stopped while positions are still open (important:
+  stops are enforced by the process, so a stopped bot means unprotected
+  positions)
+
+No-trade cycles stay silent by design. Notifications are fire-and-forget: a
+Telegram outage is logged and ignored, it can never affect trading. Leave the
+two variables blank and the feature is off.
+
+---
+
 ## Cost
 
 ~1,880 tokens of market payload plus a ~700-token system prompt, and ~400
@@ -337,6 +356,7 @@ llm/anthropic_provider.py   Claude, with caching and refusal handling
 risk.py                 the gate — deterministic, not promptable
 executor.py             order placement and exit management
 journal.py              JSONL log + crash-safe state
+notify.py               Telegram alerts, fire-and-forget
 main.py                 the loop
 tests/test_risk.py      19 tests covering the gate
 ```

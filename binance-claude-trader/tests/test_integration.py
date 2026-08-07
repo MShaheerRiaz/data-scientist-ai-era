@@ -130,6 +130,17 @@ def open_decision(symbol="BTCUSDT", entry=100.0, stop=96.0, target=110.0) -> dic
             "reasoning": "test setup", "rejected": []}
 
 
+class RecordingNotifier:
+    """Stands in for TelegramNotifier; keeps every message it was asked to send."""
+
+    def __init__(self):
+        self.messages: list[str] = []
+
+    def send(self, text: str) -> bool:
+        self.messages.append(text)
+        return True
+
+
 class Harness:
     """A fully wired paper-trading session against the stubs."""
 
@@ -154,12 +165,13 @@ class Harness:
         self.positions: dict = {}
         self.day = DayState()
         self.paper = PaperAccount(starting_equity=self.cfg.paper_equity)
+        self.notifier = RecordingNotifier()
 
     def cycle(self):
         main.run_cycle(
             self.cfg, self.client, self.provider, self.gate, self.executor,
             self.journal, self.store, self.positions, self.day, self.paper,
-            self.book, None,
+            self.book, None, notifier=self.notifier,
         )
 
     def journal_events(self) -> list[dict]:
@@ -341,6 +353,31 @@ def test_exits_are_enforced_between_candles():
         stored, stored_day, _ = h.store.load()
         assert stored == {}
         assert round(stored_day.realised_pnl, 2) == -62.50
+
+
+def test_notifications_fire_on_open_close_and_kill_switch():
+    """Telegram messages go out for the events that matter, and only those."""
+    with tempfile.TemporaryDirectory() as tmp:
+        h = Harness(tmp)
+        h.provider.decisions = [open_decision(), none_decision()]
+        h.cycle()
+        assert any("Opened BTCUSDT" in m for m in h.notifier.messages)
+
+        # No-trade cycles stay silent — an alert per hour of nothing is noise.
+        before = len(h.notifier.messages)
+        h.day.realised_pnl = -400.0  # breach the daily cap
+        h.client.current_price["BTCUSDT"] = 95.0
+        h.cycle()
+
+        closed = [m for m in h.notifier.messages if "Closed BTCUSDT on stop" in m]
+        assert len(closed) == 1 and "-62.50" in closed[0]
+        halts = [m for m in h.notifier.messages if "halted" in m]
+        assert len(halts) == 1
+
+        # Still halted next cycle: no repeat alert.
+        h.cycle()
+        assert len([m for m in h.notifier.messages if "halted" in m]) == 1
+        assert len(h.notifier.messages) == before + 2
 
 
 def test_symbol_allowlist_restricts_universe_and_gate():

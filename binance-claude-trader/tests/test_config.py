@@ -218,6 +218,14 @@ def test_symbol_allowlist_parses_and_uppercases():
     assert load().symbol_allowlist == ()
 
 
+def test_telegram_settings_parse_and_default_off():
+    cfg = load()
+    assert cfg.telegram_token == "" and cfg.telegram_chat_id == ""
+    cfg = load(TELEGRAM_BOT_TOKEN="123:abc", TELEGRAM_CHAT_ID="42")
+    assert cfg.telegram_token == "123:abc"
+    assert cfg.telegram_chat_id == "42"
+
+
 def test_stablecoin_pairs_are_denylisted():
     cfg = load()
     for pair in ("USDCUSDT", "FDUSDUSDT", "TUSDUSDT"):

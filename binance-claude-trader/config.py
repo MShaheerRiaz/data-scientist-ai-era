@@ -179,6 +179,12 @@ class Config:
     enable_review: bool = True
     max_lessons: int = 25
 
+    # Telegram notifications: opens, closes with P&L, kill switch, start/stop.
+    # Both must be set to enable; blank means silently off. See notify.py for
+    # the two-minute BotFather setup.
+    telegram_token: str = ""
+    telegram_chat_id: str = ""
+
     # News brief cadence. Deliberately far slower than the trading loop —
     # headlines change on the scale of hours, not 15-minute bars, and
     # refetching per bar would multiply cost for the same information.
@@ -242,6 +248,8 @@ class Config:
             journal_path=_env("JOURNAL_PATH", "journal.jsonl"),
             state_path=_env("STATE_PATH", "state.json"),
             lessons_path=_env("LESSONS_PATH", "lessons.json"),
+            telegram_token=_env("TELEGRAM_BOT_TOKEN", ""),
+            telegram_chat_id=_env("TELEGRAM_CHAT_ID", ""),
             enable_review=_env_bool("ENABLE_REVIEW", True),
             max_lessons=_env_int("MAX_LESSONS", 25),
             enable_news=_env_bool("ENABLE_NEWS", True),
