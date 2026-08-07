@@ -1,0 +1,277 @@
+"""Build the self-contained dashboard.html from results.json (no external deps, CSP-safe)."""
+
+import json
+
+r = json.load(open("results.json"))
+
+payload = {
+    "span": r["daily_5y"]["span"],
+    "n_days": r["daily_5y"]["n_days"],
+    "by_dow": r["daily_5y"]["by_dow"],
+    "yearly": r["daily_5y"]["yearly_mean_ret"],
+    "ranges": {d: r["d1"]["recent_2017_2022"]["by_dow"][d]["mean_range_pips"]
+               for d in ["Mon", "Tue", "Wed", "Thu", "Fri"]},
+    "p95": {d: r["d1"]["recent_2017_2022"]["by_dow"][d]["p95_range_pips"]
+            for d in ["Mon", "Tue", "Wed", "Thu", "Fri"]},
+    "heat": [[None if (v is None or v != v) else v for v in row]
+             for row in r["h1"]["recent_2017_2022"]["heat_range"]],
+    "hourly": r["h1"]["recent_2017_2022"]["hourly_range"],
+    "sessions": r["h1"]["sessions"],
+    "bt": {k: r["backtests"]["daily"][k] for k in
+           ["Mon_long", "Tue_long", "Wed_long", "Thu_short", "Fri_short"]},
+}
+
+HTML = """<title>GBP/JPY Day-of-Week Edge</title>
+<style>
+:root{
+  color-scheme:light;
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,.10);
+  --blue:#2a78d6; --red:#e34948; --pos:#2a78d6; --neg:#e34948;
+  --seq0:#cde2fb; --seq6:#0d366b; --tile-hi:#eef4fc;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,.10);
+    --blue:#3987e5; --red:#e66767; --pos:#3987e5; --neg:#e66767;
+    --seq0:#16283f; --seq6:#9ec5f4; --tile-hi:#16283f;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,.10);
+  --blue:#3987e5; --red:#e66767; --pos:#3987e5; --neg:#e66767;
+  --seq0:#16283f; --seq6:#9ec5f4; --tile-hi:#16283f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:28px 20px 60px}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--ink2);font-size:13.5px;margin:0 0 26px}
+.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:34px 0 10px;font-weight:600}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.tile .v{font-size:28px;font-weight:700;letter-spacing:-.01em}
+.tile .l{font-size:12.5px;color:var(--ink2);margin-top:2px}
+.tile .d{font-size:11.5px;color:var(--muted);margin-top:6px}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 18px 12px;margin-top:12px}
+.card h2{font-size:15px;margin:0 0 2px}
+.card .note{font-size:12px;color:var(--muted);margin:0 0 12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:860px){.grid2{grid-template-columns:1fr}}
+svg text{font:11.5px system-ui,sans-serif;fill:var(--ink2)}
+svg .val{fill:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+svg .mut{fill:var(--muted)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;text-align:right;padding:7px 10px;border-bottom:1px solid var(--grid)}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 10px;border-bottom:1px solid var(--grid);text-align:right;color:var(--ink)}
+tr:last-child td{border-bottom:none}
+#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--page);
+  padding:5px 9px;border-radius:6px;font-size:12px;display:none;z-index:9;white-space:nowrap}
+.caveat{font-size:12.5px;color:var(--ink2);border-left:3px solid var(--baseline);padding:2px 0 2px 12px;margin-top:26px}
+.caveat b{color:var(--ink)}
+a{color:var(--blue)}
+</style>
+<div class="wrap">
+  <h1>GBP/JPY — day-of-week &amp; session edge</h1>
+  <p class="sub">__SPAN0__ → __SPAN1__ · __NDAYS__ trading days (FRED + currency-api closes) · intraday structure from Dukascopy hourly 2012–2022 · all intraday times are <b>London time</b></p>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="eyebrow">Direction by weekday — 5 years</div>
+  <div class="grid2">
+    <div class="card"><h2>Average daily return</h2><p class="note">close-to-close log return · blue = positive, red = negative</p><div id="c_ret"></div></div>
+    <div class="card"><h2>Share of up days</h2><p class="note">dashed line = 50% coin flip</p><div id="c_up"></div></div>
+  </div>
+  <div class="card"><h2>Year-by-year consistency</h2><p class="note">mean daily return per weekday per calendar year (%) — Monday is blue in all six rows</p><div class="scroll" id="c_yr"></div></div>
+
+  <div class="eyebrow">Volatility — where the movement lives</div>
+  <div class="card"><h2>Weekday × hour heatmap</h2><p class="note">mean 1-hour high–low range in pips, 2017–2022 · stronger color = busier · hover for values</p><div class="scroll" id="c_heat"></div></div>
+  <div class="grid2">
+    <div class="card"><h2>Average hourly range</h2><p class="note">pips per hour across the London day · London session shaded</p><div id="c_prof"></div></div>
+    <div class="card"><h2>Average daily range by weekday</h2><p class="note">pips, 2017–2022 · Monday calmest, Thursday wildest</p><div id="c_rng"></div></div>
+  </div>
+
+  <div class="eyebrow">Session drift by weekday (2012–2022)</div>
+  <div class="card"><h2>Net movement per session, pips</h2><p class="note">average net move (session close − open) · Friday is negative in every session</p><div class="scroll" id="c_sess"></div></div>
+
+  <div class="eyebrow">Naive backtests — before costs</div>
+  <div class="card"><h2>Hold one full day each week</h2><p class="note">in-sample 2021–2024 · out-of-sample 2025–2026 · no leverage, no spread</p><div class="scroll" id="c_bt"></div></div>
+
+  <p class="caveat"><b>Read before trading:</b> 2021–2026 was one long yen-weakening regime — part of the weekday tilt <i>is</i> the trend, and day-of-week effects can flip when regimes turn. Dozens of patterns were tested, so the smaller effects may be luck; only Monday-long clears significance, year-by-year consistency and an independent dataset. Session drifts of 3–7 pips do not survive a 2–4 pip spread. Intraday data ends March 2022. This shifts odds a few points — it does not predict any single trade. Full study: <code>forex-analysis/REPORT.md</code>.</p>
+</div>
+<div id="tip"></div>
+<script>
+const D = __DATA__;
+const DOW = ["Mon","Tue","Wed","Thu","Fri"];
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const tip = document.getElementById("tip");
+function hover(el, text){
+  el.addEventListener("mousemove", e => {tip.style.display="block";
+    tip.style.left=(e.clientX+14)+"px"; tip.style.top=(e.clientY+10)+"px"; tip.textContent=text;});
+  el.addEventListener("mouseleave", ()=> tip.style.display="none");
+}
+const S = (tag, at) => {const n=document.createElementNS("http://www.w3.org/2000/svg",tag);
+  for(const k in at) n.setAttribute(k,at[k]); return n;}
+function svgEl(w,h){const s=S("svg",{viewBox:`0 0 ${w} ${h}`,width:"100%"});return s;}
+function lerp(a,b,t){return a+(b-a)*t}
+function hex2rgb(x){x=x.replace('#','');if(x.length===3)x=[...x].map(c=>c+c).join('');
+  return [0,2,4].map(i=>parseInt(x.slice(i,i+2),16))}
+function mix(c1,c2,t){const a=hex2rgb(c1),b=hex2rgb(c2);
+  return `rgb(${a.map((v,i)=>Math.round(lerp(v,b[i],t))).join(',')})`}
+
+// --- stat tiles
+const mon = D.by_dow.Mon, thu = D.by_dow.Thu;
+document.getElementById("tiles").innerHTML = `
+  <div class="tile" style="background:var(--tile-hi)"><div class="v pos">${mon.pct_up}%</div>
+    <div class="l">of Mondays closed up</div><div class="d">mean +${mon.mean_ret}%/day · positive all 6 years · t=${mon.t_stat}</div></div>
+  <div class="tile"><div class="v neg">${thu.pct_up}%</div>
+    <div class="l">of Thursdays closed up</div><div class="d">the only reliably negative day · biggest ranges &amp; tails</div></div>
+  <div class="tile"><div class="v">08–16</div>
+    <div class="l">busiest hours (London)</div><div class="d">peaks at 08–09 open and 14–16 · dead zone 03–06</div></div>
+  <div class="tile"><div class="v">${D.ranges.Mon}<span style="font-size:15px;color:var(--muted)"> pips</span></div>
+    <div class="l">Monday avg daily range</div><div class="d">calmest day — vs ${D.ranges.Thu} pips on Thursday</div></div>`;
+
+// --- signed bar chart helper
+function bars(el, vals, fmt, opts={}){
+  const w=480,h=230,px=36,pt=18,pb=26;
+  const svg=svgEl(w,h);
+  const lo=Math.min(0,...vals), hi=Math.max(0,...vals,opts.min??0);
+  const y=v=>pt+(hi-v)/(hi-lo)*(h-pt-pb);
+  const bw=(w-2*px)/5*0.55;
+  if(opts.line50!=null){
+    svg.appendChild(S("line",{x1:px-6,x2:w-px+6,y1:y(opts.line50),y2:y(opts.line50),
+      stroke:css('--ink2'),"stroke-dasharray":"4 3","stroke-width":1}));
+  }
+  svg.appendChild(S("line",{x1:px-6,x2:w-px+6,y1:y(0),y2:y(0),stroke:css('--baseline')}));
+  vals.forEach((v,i)=>{
+    const cx=px+(w-2*px)/5*(i+0.5);
+    const bar=S("rect",{x:cx-bw/2,y:Math.min(y(v),y(opts.base??0)),width:bw,
+      height:Math.abs(y(v)-y(opts.base??0))||1,rx:3,
+      fill:(opts.base!=null?v>=opts.base:v>=0)?css('--pos'):css('--neg')});
+    hover(bar, `${DOW[i]}: ${fmt(v)}`); svg.appendChild(bar);
+    const t=S("text",{x:cx,y:y(Math.max(v,opts.base??0))-6,"text-anchor":"middle",class:"val"});
+    t.textContent=fmt(v); svg.appendChild(t);
+    const d=S("text",{x:cx,y:h-8,"text-anchor":"middle"}); d.textContent=DOW[i]; svg.appendChild(d);
+  });
+  el.appendChild(svg);
+}
+bars(document.getElementById("c_ret"), DOW.map(d=>D.by_dow[d].mean_ret), v=>(v>0?"+":"")+v.toFixed(3)+"%");
+bars(document.getElementById("c_up"), DOW.map(d=>D.by_dow[d].pct_up), v=>v.toFixed(0)+"%",
+     {base:50,line50:50,min:66});
+bars(document.getElementById("c_rng"), DOW.map(d=>D.ranges[d]), v=>v.toFixed(0), {min:150});
+
+// --- yearly consistency heat table
+(function(){
+  const years=Object.keys(D.yearly).sort();
+  const w=560,h=32*years.length+30,cw=(w-70)/5;
+  const svg=svgEl(w,h);
+  const all=years.flatMap(y=>D.yearly[y]);
+  const m=Math.max(...all.map(Math.abs));
+  years.forEach((yr,i)=>{
+    const t=S("text",{x:0,y:32*i+21,class:"mut"});t.textContent=yr;svg.appendChild(t);
+    D.yearly[yr].forEach((v,j)=>{
+      const c=v>=0?mix(css('--surface').startsWith('#')?css('--surface'):'#fcfcfb', '#2a78d6', Math.min(1,Math.abs(v)/m))
+                 :mix(css('--surface').startsWith('#')?css('--surface'):'#fcfcfb', '#e34948', Math.min(1,Math.abs(v)/m));
+      const rect=S("rect",{x:42+j*cw,y:32*i+2,width:cw-3,height:27,rx:3,fill:c});
+      hover(rect, `${DOW[j]} ${yr}: ${(v>0?"+":"")+v.toFixed(3)}% / day`);
+      svg.appendChild(rect);
+      const tv=S("text",{x:42+j*cw+cw/2-1,y:32*i+20,"text-anchor":"middle",
+        fill:Math.abs(v)/m>0.55?"#fff":css('--ink')});
+      tv.textContent=(v>0?"+":"")+v.toFixed(2); tv.style.fontVariantNumeric="tabular-nums";
+      svg.appendChild(tv);
+    });
+  });
+  DOW.forEach((d,j)=>{const t=S("text",{x:42+j*cw+cw/2,y:h-6,"text-anchor":"middle"});
+    t.textContent=d;svg.appendChild(t);});
+  document.getElementById("c_yr").appendChild(svg);
+})();
+
+// --- weekday x hour heatmap
+(function(){
+  const w=900,h=190,cw=(w-60)/24,ch=28;
+  const svg=svgEl(w,h);
+  const flat=D.heat.flat().filter(Number.isFinite);
+  const lo=Math.min(...flat),hi=Math.max(...flat);
+  D.heat.forEach((row,i)=>{
+    const t=S("text",{x:0,y:i*ch+19,class:"mut"});t.textContent=DOW[i];svg.appendChild(t);
+    row.forEach((v,hr)=>{
+      if(!Number.isFinite(v))return;
+      const rect=S("rect",{x:34+hr*cw,y:i*ch+2,width:cw-2,height:ch-4,rx:2,
+        fill:mix(css('--seq0'),css('--seq6'),(v-lo)/(hi-lo))});
+      hover(rect,`${DOW[i]} ${String(hr).padStart(2,"0")}:00 — ${v.toFixed(1)} pips avg range`);
+      svg.appendChild(rect);
+    });
+  });
+  for(let hr=0;hr<24;hr++){const t=S("text",{x:34+hr*cw+cw/2,y:5*ch+16,"text-anchor":"middle",class:"mut"});
+    t.textContent=String(hr).padStart(2,"0");svg.appendChild(t);}
+  const cap=S("text",{x:34,y:5*ch+38,class:"mut"});
+  cap.textContent=`scale: ${lo.toFixed(0)}–${hi.toFixed(0)} pips average hourly range`;svg.appendChild(cap);
+  document.getElementById("c_heat").appendChild(svg);
+})();
+
+// --- hourly profile
+(function(){
+  const w=480,h=210,px=30,pt=14,pb=24;
+  const svg=svgEl(w,h);
+  const hi=Math.max(...D.hourly);
+  const y=v=>pt+(hi-v)/hi*(h-pt-pb), bw=(w-2*px)/24*0.62;
+  svg.appendChild(S("rect",{x:px+(w-2*px)/24*8-bw/2-2,y:pt-4,
+    width:(w-2*px)/24*8+bw+2,height:h-pt-pb+6,fill:css('--blue'),opacity:0.07}));
+  D.hourly.forEach((v,i)=>{
+    const cx=px+(w-2*px)/24*(i+0.5);
+    const bar=S("rect",{x:cx-bw/2,y:y(v),width:bw,height:h-pb-y(v),rx:2,fill:css('--blue')});
+    hover(bar,`${String(i).padStart(2,"0")}:00 London — ${v.toFixed(1)} pips`);
+    svg.appendChild(bar);
+    if(i%4===0){const t=S("text",{x:cx,y:h-6,"text-anchor":"middle",class:"mut"});
+      t.textContent=String(i).padStart(2,"0");svg.appendChild(t);}
+  });
+  const lbl=S("text",{x:px+(w-2*px)/24*12,y:pt+8,"text-anchor":"middle",class:"mut"});
+  lbl.textContent="London 08–16";svg.appendChild(lbl);
+  document.getElementById("c_prof").appendChild(svg);
+})();
+
+// --- sessions table
+(function(){
+  const names=Object.keys(D.sessions);
+  let html="<table><tr><th>Session (London)</th>"+DOW.map(d=>`<th>${d}</th>`).join("")+"</tr>";
+  names.forEach(n=>{
+    html+=`<tr><td>${n}</td>`+DOW.map(d=>{
+      const v=D.sessions[n][d].mean_net_pips;
+      return `<td class="${v>=0?'pos':'neg'}">${v>0?"+":""}${v.toFixed(1)}</td>`;
+    }).join("")+"</tr>";
+  });
+  document.getElementById("c_sess").innerHTML=html+"</table>";
+})();
+
+// --- backtest table
+(function(){
+  const label={Mon_long:"Long Monday",Tue_long:"Long Tuesday",Wed_long:"Long Wednesday",
+    Thu_short:"Short Thursday",Fri_short:"Short Friday"};
+  let html=`<table><tr><th>Rule</th><th>IS win rate</th><th>IS Sharpe</th><th>OOS win rate</th><th>OOS Sharpe</th></tr>`;
+  for(const k in D.bt){
+    const b=D.bt[k];
+    const strong=k==="Mon_long";
+    html+=`<tr${strong?' style="font-weight:700"':''}><td>${label[k]}${strong?" ★":""}</td>
+      <td>${b.in_sample.win_rate}%</td><td>${b.in_sample.sharpe_ann}</td>
+      <td>${b.out_of_sample.win_rate}%</td><td>${b.out_of_sample.sharpe_ann}</td></tr>`;
+  }
+  document.getElementById("c_bt").innerHTML=html+"</table>";
+})();
+</script>
+"""
+
+html = (HTML
+        .replace("__DATA__", json.dumps(payload))
+        .replace("__SPAN0__", r["daily_5y"]["span"][0])
+        .replace("__SPAN1__", r["daily_5y"]["span"][1])
+        .replace("__NDAYS__", str(r["daily_5y"]["n_days"])))
+open("dashboard.html", "w").write(html)
+print("dashboard.html", len(html), "bytes")
