@@ -1,0 +1,56 @@
+{
+  "name": "n8n-nodes-social-media-poster",
+  "version": "0.1.0",
+  "description": "n8n community nodes for posting to Twitter/X, Facebook, Instagram, LinkedIn, Bluesky, and Threads",
+  "license": "MIT",
+  "main": "index.js",
+  "keywords": [
+    "n8n-community-node-package",
+    "social-media",
+    "twitter",
+    "facebook",
+    "instagram",
+    "linkedin",
+    "bluesky",
+    "threads"
+  ],
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/TwitterApi.credentials.js",
+      "dist/credentials/FacebookGraphApi.credentials.js",
+      "dist/credentials/InstagramApi.credentials.js",
+      "dist/credentials/LinkedInApi.credentials.js",
+      "dist/credentials/BlueskyApi.credentials.js",
+      "dist/credentials/ThreadsApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/SocialMediaPoster/twitter/TwitterPoster.node.js",
+      "dist/nodes/SocialMediaPoster/facebook/FacebookPoster.node.js",
+      "dist/nodes/SocialMediaPoster/instagram/InstagramPoster.node.js",
+      "dist/nodes/SocialMediaPoster/linkedin/LinkedInPoster.node.js",
+      "dist/nodes/SocialMediaPoster/bluesky/BlueskyPoster.node.js",
+      "dist/nodes/SocialMediaPoster/threads/ThreadsPoster.node.js"
+    ]
+  },
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "gulp": "^5.0.0",
+    "n8n-workflow": "^1.78.0",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "oauth-1.0a": "^2.2.6"
+  }
+}
