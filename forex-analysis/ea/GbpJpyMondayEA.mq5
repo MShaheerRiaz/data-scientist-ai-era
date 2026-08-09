@@ -37,8 +37,15 @@ input double InpMaxSpreadPips    = 6.0;   // Skip entry if spread wider than thi
 input int    InpNewsBlockMinutes = 3;     // Skip entry within +/- minutes of high-impact news (0 = off)
 input long   InpMagic            = 20260807;
 input bool   InpJournal          = true;  // Write JSONL journal (Common\Files)
+input double InpFtmoTargetPct    = 10.0;  // FTMO profit target % (10 = Challenge, 5 = Verification, 0 = off)
+input double InpFtmoDailyLossPct = 5.0;   // FTMO max daily loss %
+input double InpFtmoMaxLossPct   = 10.0;  // FTMO max overall loss %
+input bool   InpPushAlerts       = true;  // Also push to phone (needs MetaQuotes ID in MT5 options)
 
 CTrade  trade;
+bool    g_ftmoPassed    = false;
+bool    g_ftmoFailed    = false;
+datetime g_lastDailyBreachDay = 0;
 double  g_baselineEquity = 0;     // equity when EA first attached (challenge baseline)
 double  g_dayStartEquity = 0;
 int     g_dayOfEquity    = -1;
@@ -140,6 +147,55 @@ void CloseAll(const string reason)
 }
 
 //+------------------------------------------------------------------+
+//| FTMO status monitor: alerts + journals PASSED / DAILY BREACH /   |
+//| FAILED against the account baseline (attach-time equity).        |
+//| Note: FTMO measures the daily loss from balance/equity at        |
+//| midnight CE(S)T; this check uses the server-day start equity —   |
+//| close enough for monitoring, and the EA's own tighter guards     |
+//| (-3% day / -8% total) halt trading well before a real breach.    |
+//+------------------------------------------------------------------+
+void Notify(const string msg)
+{
+   Print(msg);
+   Alert(msg);
+   if(InpPushAlerts) SendNotification(msg);
+}
+
+void CheckFtmoStatus()
+{
+   if(g_baselineEquity <= 0) return;
+   double eq = AccountInfoDouble(ACCOUNT_EQUITY);
+
+   if(InpFtmoTargetPct > 0 && !g_ftmoPassed &&
+      eq >= g_baselineEquity * (1.0 + InpFtmoTargetPct / 100.0))
+   {
+      g_ftmoPassed = true;
+      Notify(StringFormat("FTMO TARGET REACHED: +%.1f%% (equity %.2f). Phase passed - stop or continue manually.",
+             InpFtmoTargetPct, eq));
+      Journal("ftmo_passed", J("target_pct", InpFtmoTargetPct));
+   }
+   if(!g_ftmoFailed && eq <= g_baselineEquity * (1.0 - InpFtmoMaxLossPct / 100.0))
+   {
+      g_ftmoFailed = true;
+      Notify(StringFormat("FTMO MAX LOSS BREACHED: -%.1f%% from baseline (equity %.2f). Challenge FAILED.",
+             InpFtmoMaxLossPct, eq));
+      Journal("ftmo_failed", J("max_loss_pct", InpFtmoMaxLossPct));
+      g_totalHalt = true;
+      CloseAll("FTMO max loss breached");
+   }
+   MqlDateTime t; TimeToStruct(TimeCurrent(), t);
+   datetime today = StringToTime(TimeToString(TimeCurrent(), TIME_DATE));
+   if(today != g_lastDailyBreachDay &&
+      eq <= g_dayStartEquity * (1.0 - InpFtmoDailyLossPct / 100.0))
+   {
+      g_lastDailyBreachDay = today;
+      Notify(StringFormat("FTMO DAILY LOSS BREACHED: -%.1f%% today (equity %.2f). Rule violated.",
+             InpFtmoDailyLossPct, eq));
+      Journal("ftmo_daily_breach", J("daily_loss_pct", InpFtmoDailyLossPct));
+   }
+}
+
+//+------------------------------------------------------------------+
 //| Risk guards: return false if trading must stop                   |
 //+------------------------------------------------------------------+
 bool GuardsOK()
@@ -224,6 +280,8 @@ void OnTick()
 {
    MqlDateTime t; TimeToStruct(TimeCurrent(), t);
    if(t.day_of_year != g_dayOfEquity) ResetDay();
+
+   CheckFtmoStatus();
 
    bool inPos = HasOpenPosition();
 
