@@ -68,6 +68,36 @@ FTMO FAQ before each Challenge — rules change.
    intend to run live (don't paper-test on Haiku — results wouldn't transfer).
 4. After a green month: FTMO Challenge, same EA, same settings, risk 0.5% (or 0.25%).
 
+## 4b. Risk model & execution rules (agreed Aug 2026)
+
+**Discretionary challenge/funded-account rules — the path that actually passes:**
+
+- Base risk: **0.5% per trade**, RR minimum **1:2** (win +1.0%, loss −0.5%).
+- Breakeven win rate 33.3%. Targets: 45% WR → ~57 trades to +10%; 50% → 40; 55% → ~31.
+  At 2–3 setups/week ≈ 3–6 months for Phase 1; Phase 2 (+5%) about half.
+- **Scaling rule:** risk may rise to 0.75–1.0% ONLY when account is ≥ +3% cumulative
+  AND the setup is A-grade. If profit drops back below +3%, risk reverts to 0.5%.
+  Never exceed 1.0% per trade. Never scale up after a loss (no revenge sizing).
+- **Every entry goes in with SL and TP attached** (real server-side orders, placed at
+  order entry, never mental stops, never added later).
+- **Stop size (from the 5y data):** 20–25 pips is too tight for GBPJPY — average
+  *single-hour* range in London hours is 29–40 pips, so a 20-pip stop sits inside one
+  candle's noise. Working band: **25–40 pips**, placed at structure (beyond the swing),
+  not at a fixed number. With 1:2 that means 50–80 pip targets — vs ~122–137 pip average
+  daily range, so targets are realistic on trending days only; skip setups whose 2R
+  target exceeds ~60–70% of the day's expected range remaining.
+- Spread counts: 2–4 pip spread on a 25-pip stop is ~10–15% hidden cost — measure RR
+  from real fill prices.
+- Guardrails: max **2 losses/day then stop** (−1% day, far from FTMO's −5%);
+  max 1–2 concurrent GJ positions; no entries within ±3 min of high-impact news;
+  flat over weekends on the challenge; London hours only (08:00–16:00 UK), avoid 03–06.
+- Session seasonality filter (§2): prefer longs Mon–Wed, extra skepticism on
+  Thu–Fri longs.
+- FTMO fee only after the journal shows **≥45% WR over 30+ logged trades** at 1:2.
+- Known holes (not foolproof, by design honest): actual WR at 1:2 is unproven until
+  journaled; discipline on the 2-loss rule is on Shaheer; news gaps can slip past a SL
+  (rare, sized survivable at 0.5%).
+
 ## 5. Live trade review workflow
 
 When Shaheer shares a chart + idea, Claude gives: (1) technical read (structure, levels,
