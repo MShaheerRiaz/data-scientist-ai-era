@@ -29,8 +29,10 @@ input double InpRiskPercent      = 0.5;   // Risk per trade, % of balance
 input double InpATRMult          = 1.5;   // Stop = ATR(D1) x this
 input int    InpATRPeriod        = 14;    // ATR period (D1)
 input double InpFixedStopPips    = 0;     // Fixed stop in pips (0 = use ATR)
-input int    InpEntryHour        = 0;     // Entry hour, server time, Monday
-input int    InpExitHour         = 23;    // Exit hour, server time, Monday
+input int    InpEntryHour        = 0;     // Entry hour, server time
+input int    InpExitHour         = 23;    // Monday exit hour, server time
+input bool   InpFridayShort      = true;  // Enable Friday-short module (+12.5 pips/trade 2012-22, 10/11 yrs positive)
+input int    InpFriExitHour      = 22;    // Friday exit hour, server time (buffer before weekend close)
 input double InpMaxDailyLossPct  = 3.0;   // Halt day if equity falls this % from day start
 input double InpMaxTotalDDPct    = 8.0;   // Halt EA if equity falls this % from baseline
 input double InpMaxSpreadPips    = 6.0;   // Skip entry if spread wider than this
@@ -287,18 +289,29 @@ void OnTick()
 
    if(!GuardsOK()) return;
 
-   // exit: at/after exit hour on Monday, or any bar that is no longer Monday
-   if(inPos && (t.day_of_week != 1 || t.hour >= InpExitHour))
+   // exits: direction identifies the module (buy = Monday-long, sell = Friday-short)
+   if(inPos)
    {
-      CloseAll("scheduled Monday exit");
+      bool isBuy = true;
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      {
+         ulong tk = PositionGetTicket(i);
+         if(PositionSelectByTicket(tk) && PositionGetInteger(POSITION_MAGIC) == InpMagic &&
+            PositionGetString(POSITION_SYMBOL) == _Symbol)
+            isBuy = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY);
+      }
+      if(isBuy  && (t.day_of_week != 1 || t.hour >= InpExitHour))    { CloseAll("scheduled Monday exit"); return; }
+      if(!isBuy && (t.day_of_week != 5 || t.hour >= InpFriExitHour)) { CloseAll("scheduled Friday exit"); return; }
       return;
    }
 
-   // entry: Monday, entry hour, once per week
-   if(inPos || t.day_of_week != 1 || t.hour != InpEntryHour) return;
+   // entries: Monday long (day 1) or Friday short (day 5), at entry hour, once per day
+   bool monday = (t.day_of_week == 1);
+   bool friday = (t.day_of_week == 5 && InpFridayShort);
+   if((!monday && !friday) || t.hour != InpEntryHour) return;
 
    datetime today = StringToTime(TimeToString(TimeCurrent(), TIME_DATE));
-   if(today == g_lastEntryDay) return;   // already traded this Monday
+   if(today == g_lastEntryDay) return;   // already traded today
 
    double spreadPips = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) -
                         SymbolInfoDouble(_Symbol, SYMBOL_BID)) / PipSize();
@@ -323,21 +336,34 @@ void OnTick()
       return;
    }
 
-   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double sl  = NormalizeDouble(ask - stopDist, _Digits);
-   if(trade.Buy(lots, _Symbol, 0.0, sl, 0.0, "Monday seasonality long"))
+   bool ok;
+   double sl;
+   if(monday)
+   {
+      double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      sl = NormalizeDouble(ask - stopDist, _Digits);
+      ok = trade.Buy(lots, _Symbol, 0.0, sl, 0.0, "Monday seasonality long");
+   }
+   else
+   {
+      double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      sl = NormalizeDouble(bid + stopDist, _Digits);
+      ok = trade.Sell(lots, _Symbol, 0.0, sl, 0.0, "Friday seasonality short");
+   }
+   if(ok)
    {
       g_lastEntryDay = today;
-      Print("Monday long opened: ", lots, " lots, SL ", sl,
+      string side = monday ? "monday_long" : "friday_short";
+      Print(side, " opened: ", lots, " lots, SL ", sl,
             " (", DoubleToString(stopDist / PipSize(), 0), " pips)");
-      Journal("entry", J("price", trade.ResultPrice()) + "," + J("lots", lots) + "," +
-              J("sl", sl) + "," + J("sl_pips", stopDist / PipSize()) + "," +
+      Journal("entry", Js("side", side) + "," + J("price", trade.ResultPrice()) + "," +
+              J("lots", lots) + "," + J("sl", sl) + "," + J("sl_pips", stopDist / PipSize()) + "," +
               J("spread_pips", spreadPips) + "," + J("risk_pct", InpRiskPercent));
    }
    else
    {
-      Print("Buy failed: ", trade.ResultRetcodeDescription());
-      Journal("error", Js("where", "buy") + "," + Js("message", trade.ResultRetcodeDescription()));
+      Print("Order failed: ", trade.ResultRetcodeDescription());
+      Journal("error", Js("where", monday ? "buy" : "sell") + "," + Js("message", trade.ResultRetcodeDescription()));
    }
 }
 //+------------------------------------------------------------------+

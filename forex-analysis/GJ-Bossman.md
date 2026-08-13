@@ -56,6 +56,17 @@ capital-allocation denials); this private custom EA is the allowed category. New
 no opens within 2 min of high-impact news during Challenge/Verification. Re-check the
 FTMO FAQ before each Challenge — rules change.
 
+## 3b. Module 2: Friday short (added Aug 2026, bot-only mode)
+
+- Shaheer decided **bot-only trading** (no discretionary for now).
+- **Friday-short module baked into the EA** (`InpFridayShort=true`): sell Fri 00:00
+  server, ATR×1.5 stop above, exit 22:00 Fri. Exact-rules backtest net of 3 pips:
+  **+12.5 pips/trade 2012–22, positive 10/11 years** (only 2019 negative);
+  recent years ~+2–5 pips. Satellite edge — Monday-long remains primary.
+- **Thursday-short tested and REJECTED**: +1 pip 2017–22, −4.6 in 2020–22 intraday.
+  Its close-to-close negativity is overnight-gap driven — not capturable by a day bot.
+  Do not re-add without new evidence.
+
 ## 4. The plan (agreed Aug 2026)
 
 1. **Paper trade for 1 month**: MT5 demo / FTMO Free Trial, EA at defaults.

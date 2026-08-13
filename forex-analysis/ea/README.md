@@ -4,7 +4,17 @@ Implements the one edge from [`../REPORT.md`](../REPORT.md) that survived every 
 **long GBP/JPY through Monday**, from the week's first bar to Monday's last hour.
 Built as a private, single-user EA for use on FTMO accounts.
 
-## The rule it trades
+## The rules it trades
+
+**Module 1 — Monday long** (the primary edge) and **Module 2 — Friday short**
+(`InpFridayShort`, on by default): sell GBPJPY at Friday 00:00 server, ATR stop above,
+close at 22:00 Friday (buffer before the weekend). Friday-short backtest, exact rules,
+net of 3 pips: **+12.5 pips/trade 2012–2022, positive 10 of 11 years**, ~+2–5 pips/trade
+in recent years, ~4% stopped out. Thinner than Monday — treat it as a satellite.
+Thursday-short was tested the same way and **rejected** (+1 pip 2017–22, negative
+2020–22 — its reputation comes from overnight gaps a day-bot can't capture).
+
+### Monday long in detail
 
 1. Monday, first server-time bar (00:00 on FTMO's EET-style server clock = the week open): **buy** GBPJPY.
 2. Stop-loss: `ATR(14, D1) × 1.5` below entry (or a fixed pip stop via input). Position sized so the stop costs `RiskPercent` of balance (default **0.5%**).
