@@ -128,7 +128,7 @@
    "long",
    3.71,
    "+0.090%",
-   "not yet validated recent"
+   "\u274c failed recent: t=0.4 (2021\u201326)"
   ],
   [
    "GBPJPY",
@@ -144,7 +144,7 @@
    "long",
    3.34,
    "+0.078%",
-   "not yet validated recent"
+   "\u2705 t=2.6, 5/6 yrs \u2014 NOT deployed (3rd yen-cross = same bet)"
   ],
   [
    "EURCHF",
@@ -160,7 +160,7 @@
    "long",
    3.28,
    "+0.055%",
-   "not yet validated recent"
+   "\u274c failed recent: t=0.2 (2021\u201326)"
   ]
  ],
  "rejected": [

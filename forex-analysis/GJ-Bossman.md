@@ -83,6 +83,11 @@ FTMO FAQ before each Challenge — rules change.
   GJ Thursday. Watch in journal, don't trade.
 - **EURCHF Monday: REJECTED** - highest historical t (5.3) but dead since 2021
   (t=0.5). Lesson: always validate on recent data before deploying.
+- **Remaining sweep candidates, all validated Aug 2026 (2021-2026 data):**
+  AUDUSD Mon FAILED (t=0.4); USDCHF Mon FAILED (t=0.2); EURJPY Mon PASSED
+  (t=2.6, 5/6 years) but NOT deployed - a third yen-cross Monday-long is the
+  same short-yen macro bet as GJ+AUDJPY (concentration, not diversification).
+  Bench candidate: could replace AUDJPY or GJ Monday if one of them decays.
 
 ## 4. The plan (agreed Aug 2026)
 
