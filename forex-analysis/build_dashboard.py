@@ -3,8 +3,10 @@
 import json
 
 r = json.load(open("results.json"))
+v2 = json.load(open("results_v2.json"))
 
 payload = {
+    "v2": v2,
     "span": r["daily_5y"]["span"],
     "n_days": r["daily_5y"]["n_days"],
     "by_dow": r["daily_5y"]["by_dow"],
@@ -85,6 +87,9 @@ a{color:var(--blue)}
 
   <div class="tiles" id="tiles"></div>
 
+  <div class="eyebrow">The bot — three deployed modules (exact-rules backtests, net of costs)</div>
+  <div class="card"><div class="scroll" id="c_modules"></div></div>
+
   <div class="eyebrow">Direction by weekday — 5 years</div>
   <div class="grid2">
     <div class="card"><h2>Average daily return</h2><p class="note">close-to-close log return · blue = positive, red = negative</p><div id="c_ret"></div></div>
@@ -101,6 +106,18 @@ a{color:var(--blue)}
 
   <div class="eyebrow">Session drift by weekday (2012–2022)</div>
   <div class="card"><h2>Net movement per session, pips</h2><p class="note">average net move (session close − open) · Friday is negative in every session</p><div class="scroll" id="c_sess"></div></div>
+
+  <div class="eyebrow">Second pair: AUDJPY — validated to the same standard</div>
+  <div class="grid2">
+    <div class="card"><h2>AUDJPY average daily return by weekday</h2><p class="note" id="aud_span"></p><div id="c_aud"></div></div>
+    <div class="card"><h2>AUDJPY year-by-year consistency</h2><p class="note">mean %/day per weekday per year — Monday positive in all six rows</p><div class="scroll" id="c_audyr"></div></div>
+  </div>
+
+  <div class="eyebrow">12-pair sweep — where the edges are (2016–2022, net of costs)</div>
+  <div class="card"><div class="scroll" id="c_sweep"></div></div>
+
+  <div class="eyebrow">Rejected edges — tested and binned (so nobody re-adds them)</div>
+  <div class="card"><div id="c_rejected"></div></div>
 
   <div class="eyebrow">Naive backtests — before costs</div>
   <div class="card"><h2>Hold one full day each week</h2><p class="note">in-sample 2021–2024 · out-of-sample 2025–2026 · no leverage, no spread</p><div class="scroll" id="c_bt"></div></div>
@@ -249,6 +266,63 @@ bars(document.getElementById("c_rng"), DOW.map(d=>D.ranges[d]), v=>v.toFixed(0),
     }).join("")+"</tr>";
   });
   document.getElementById("c_sess").innerHTML=html+"</table>";
+})();
+
+// --- v2: modules table
+(function(){
+  let html=`<table><tr><th>Module</th><th>Entry</th><th>Exit</th><th>2017–22</th><th>2020–22</th><th>Consistency</th><th>Status</th></tr>`;
+  for(const m of D.v2.modules){
+    html+=`<tr><td><b>${m.name}</b></td><td>${m.entry}</td><td>${m.exit}</td><td>${m.r1722}</td><td>${m.r2022}</td><td>${m.years}</td><td class="pos"><b>${m.status}</b></td></tr>`;
+  }
+  document.getElementById("c_modules").innerHTML=html+"</table>";
+})();
+
+// --- v2: AUDJPY weekday bars + yearly heat
+(function(){
+  const A=D.v2.audjpy;
+  document.getElementById("aud_span").textContent=
+    `close-to-close, ${A.span[0]} → ${A.span[1]} · FRED + currency-api · Monday: t=${A.by_dow.Mon.t_stat}, ${A.by_dow.Mon.pct_up}% up days`;
+  bars(document.getElementById("c_aud"), DOW.map(d=>A.by_dow[d].mean_ret), v=>(v>0?"+":"")+v.toFixed(3)+"%");
+  const years=Object.keys(A.yearly).sort();
+  const w=560,h=32*years.length+30,cw=(w-70)/5;
+  const svg=svgEl(w,h);
+  const m=Math.max(...years.flatMap(y=>A.yearly[y]).filter(Number.isFinite).map(Math.abs));
+  years.forEach((yr,i)=>{
+    const t=S("text",{x:0,y:32*i+21,class:"mut"});t.textContent=yr;svg.appendChild(t);
+    A.yearly[yr].forEach((v,j)=>{
+      if(!Number.isFinite(v))return;
+      const c=v>=0?mix('#fcfcfb','#2a78d6',Math.min(1,Math.abs(v)/m))
+                 :mix('#fcfcfb','#e34948',Math.min(1,Math.abs(v)/m));
+      const rect=S("rect",{x:42+j*cw,y:32*i+2,width:cw-3,height:27,rx:3,fill:c});
+      hover(rect,`${DOW[j]} ${yr}: ${(v>0?"+":"")+v.toFixed(3)}% / day`);
+      svg.appendChild(rect);
+      const tv=S("text",{x:42+j*cw+cw/2-1,y:32*i+20,"text-anchor":"middle",
+        fill:Math.abs(v)/m>0.55?"#fff":css('--ink')});
+      tv.textContent=(v>0?"+":"")+v.toFixed(2);svg.appendChild(tv);
+    });
+  });
+  DOW.forEach((d,j)=>{const t=S("text",{x:42+j*cw+cw/2,y:h-6,"text-anchor":"middle"});
+    t.textContent=d;svg.appendChild(t);});
+  document.getElementById("c_audyr").appendChild(svg);
+})();
+
+// --- v2: sweep table
+(function(){
+  let html=`<table><tr><th>Pair</th><th>Day</th><th>Side</th><th>t-stat</th><th>Net edge/day</th><th>Recent validation</th></tr>`;
+  for(const [p,d,s,t,net,val] of D.v2.sweep){
+    const dep=val.includes("DEPLOYED")||val.includes("deployed");
+    html+=`<tr${dep?' style="font-weight:700"':''}><td>${p}</td><td>${d}</td><td>${s}</td><td>${t}</td><td>${net}</td><td>${val}</td></tr>`;
+  }
+  document.getElementById("c_sweep").innerHTML=html+"</table>";
+})();
+
+// --- v2: rejected list
+(function(){
+  let html="";
+  for(const [name,why] of D.v2.rejected){
+    html+=`<p style="margin:6px 0"><b class="neg">✗ ${name}</b> — <span style="color:var(--ink2)">${why}</span></p>`;
+  }
+  document.getElementById("c_rejected").innerHTML=html;
 })();
 
 // --- backtest table

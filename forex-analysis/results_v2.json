@@ -1,0 +1,180 @@
+{
+ "audjpy": {
+  "span": [
+   "2021-08-03",
+   "2026-08-06"
+  ],
+  "by_dow": {
+   "Mon": {
+    "mean_ret": 0.1024,
+    "pct_up": 56.3,
+    "t_stat": 2.31
+   },
+   "Tue": {
+    "mean_ret": 0.0445,
+    "pct_up": 55.4,
+    "t_stat": 0.98
+   },
+   "Wed": {
+    "mean_ret": 0.1,
+    "pct_up": 58.3,
+    "t_stat": 2.5
+   },
+   "Thu": {
+    "mean_ret": -0.0586,
+    "pct_up": 45.5,
+    "t_stat": -1.25
+   },
+   "Fri": {
+    "mean_ret": -0.054,
+    "pct_up": 50.4,
+    "t_stat": -1.1
+   }
+  },
+  "yearly": {
+   "2021": [
+    0.1005,
+    0.0552,
+    0.2107,
+    0.059,
+    -0.2529
+   ],
+   "2022": [
+    0.0116,
+    0.1397,
+    0.2424,
+    -0.2189,
+    -0.0429
+   ],
+   "2023": [
+    0.2661,
+    -0.1146,
+    0.0124,
+    -0.1347,
+    0.1448
+   ],
+   "2024": [
+    0.0221,
+    -0.0345,
+    0.0341,
+    0.1277,
+    -0.1178
+   ],
+   "2025": [
+    0.1126,
+    0.0643,
+    0.1039,
+    -0.0364,
+    -0.0984
+   ],
+   "2026": [
+    0.1039,
+    0.2411,
+    0.0293,
+    -0.0803,
+    -0.0908
+   ]
+  }
+ },
+ "modules": [
+  {
+   "name": "GBPJPY Monday LONG",
+   "entry": "Mon 00:00 srv",
+   "exit": "23:00 Mon",
+   "r1722": "+8.8 pips/trade \u00b7 57.1% win",
+   "r2022": "+16.3 pips \u00b7 61.1% win",
+   "years": "positive 2015\u20132022",
+   "status": "LIVE"
+  },
+  {
+   "name": "GBPJPY Friday SHORT",
+   "entry": "Fri 00:00 srv",
+   "exit": "22:00 Fri",
+   "r1722": "+4.8 pips/trade \u00b7 53% win",
+   "r2022": "+4.1 pips \u00b7 52% win",
+   "years": "positive 10 of 11 years",
+   "status": "LIVE"
+  },
+  {
+   "name": "AUDJPY Monday LONG",
+   "entry": "Mon 00:00 srv",
+   "exit": "23:00 Mon",
+   "r1722": "+7.5 pips/trade \u00b7 58.2% win",
+   "r2022": "+16.0 pips \u00b7 66.4% win",
+   "years": "positive 2015\u20132022 \u00b7 6/6 yrs to 2026",
+   "status": "LIVE"
+  }
+ ],
+ "sweep": [
+  [
+   "AUDJPY",
+   "Mon",
+   "long",
+   4.1,
+   "+0.132%",
+   "\u2705 6/6 years incl 2026 \u2014 DEPLOYED"
+  ],
+  [
+   "GBPJPY",
+   "Fri",
+   "short",
+   -2.43,
+   "+0.109%",
+   "\u2705 deployed"
+  ],
+  [
+   "AUDUSD",
+   "Mon",
+   "long",
+   3.71,
+   "+0.090%",
+   "not yet validated recent"
+  ],
+  [
+   "GBPJPY",
+   "Mon",
+   "long",
+   2.82,
+   "+0.077%",
+   "\u2705 6/6 years \u2014 deployed"
+  ],
+  [
+   "EURJPY",
+   "Mon",
+   "long",
+   3.34,
+   "+0.078%",
+   "not yet validated recent"
+  ],
+  [
+   "EURCHF",
+   "Mon",
+   "long",
+   5.34,
+   "+0.068%",
+   "\u274c DEAD since 2021 (t=0.5)"
+  ],
+  [
+   "USDCHF",
+   "Mon",
+   "long",
+   3.28,
+   "+0.055%",
+   "not yet validated recent"
+  ]
+ ],
+ "rejected": [
+  [
+   "GBPJPY Thursday short",
+   "+1 pip intraday 2017\u201322, \u22124.6 in 2020\u201322 \u2014 negativity is overnight-gap, not capturable day-of"
+  ],
+  [
+   "AUDJPY Wednesday long",
+   "6/6 years close-to-close but only +1.7 pips intraday \u2014 same gap trap"
+  ],
+  [
+   "EURCHF Monday long",
+   "best historical t-stat (5.3) of all 12 pairs, dead since 2021 \u2014 validation caught it"
+  ]
+ ]
+}
