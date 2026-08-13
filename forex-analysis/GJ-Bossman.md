@@ -67,6 +67,24 @@ FTMO FAQ before each Challenge — rules change.
   Its close-to-close negativity is overnight-gap driven — not capturable by a day bot.
   Do not re-add without new evidence.
 
+## 3b2. Module 3: Monday gap-DOWN fill (added Aug 2026 - best edge found)
+
+- Systematic strategy lab (`research/strategy_lab.py`) tested 10 intraday strategies +
+  confluences on GJ & AJ m15 data with IS(2012-18)/OOS(2019-22) discipline.
+- **Winner: Monday weekend gap-DOWN -> buy at open, TP = Friday close, SL 1:1 w/ gap:**
+  GJ +0.39R IS / +0.45R OOS (75/79% win); AJ +0.39R IS / +0.38R OOS (75/72% win).
+  Consistent both pairs, both splits, ~23 trades/yr combined, adds ~+4-5%/yr.
+  Mechanism: Monday-long drift supercharged; 62% of gaps fill same day.
+- **Gap-UP shorts LOSE (fight the drift) - never trade them.**
+- In EA as `InpGapFill=true`, magic=InpMagic+1, risk 0.35%, gap 15-120 pips.
+- **REJECTED by the lab (all negative both splits, ~5,900 trades):** London breakout
+  (-0.08R), FVG retest (-0.06R), Bollinger fade, NY-fade, prev-day momentum,
+  Fib 61.8 pullback. Breakout+FVG+bias on AJ was +0.01/+0.04R = noise, not deployed.
+  Lesson: mechanical "internet strategies" lose after costs; more trades with zero
+  edge = faster failure. Do not revisit without new evidence.
+- Caveat: intraday data ends Mar 2022; gap-fill's 2023-26 behavior is what the paper
+  month must confirm. Broker weekend gaps differ slightly from Dukascopy's.
+
 ## 3c. Second pair: AUDJPY Monday-long (validated Aug 2026, full GJ-standard checks)
 
 - Multi-pair sweep of 12 pairs found Monday-long is market-wide; **AUDJPY strongest**.

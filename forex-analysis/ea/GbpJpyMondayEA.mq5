@@ -33,6 +33,10 @@ input int    InpEntryHour        = 0;     // Entry hour, server time
 input int    InpExitHour         = 23;    // Monday exit hour, server time
 input bool   InpFridayShort      = true;  // Enable Friday-short module (+12.5 pips/trade 2012-22, 10/11 yrs positive)
 input int    InpFriExitHour      = 22;    // Friday exit hour, server time (buffer before weekend close)
+input bool   InpGapFill          = true;  // Monday gap-DOWN fill module (+0.4R, 72-79% win both pairs IS+OOS)
+input double InpGapMinPips       = 15;    // Min weekend gap (pips) to trade
+input double InpGapMaxPips       = 120;   // Max weekend gap (pips) to trade
+input double InpGapRiskPercent   = 0.35;  // Risk % for the gap-fill trade (magic = InpMagic+1)
 input double InpMaxDailyLossPct  = 3.0;   // Halt day if equity falls this % from day start
 input double InpMaxTotalDDPct    = 8.0;   // Halt EA if equity falls this % from baseline
 input double InpMaxSpreadPips    = 6.0;   // Skip entry if spread wider than this
@@ -48,6 +52,9 @@ CTrade  trade;
 bool    g_ftmoPassed    = false;
 bool    g_ftmoFailed    = false;
 datetime g_lastDailyBreachDay = 0;
+datetime g_lastGapDay   = 0;
+
+bool IsOurMagic(long mg) { return mg == InpMagic || mg == InpMagic + 1; }
 double  g_baselineEquity = 0;     // equity when EA first attached (challenge baseline)
 double  g_dayStartEquity = 0;
 int     g_dayOfEquity    = -1;
@@ -109,13 +116,13 @@ void ResetDay()
 }
 
 //+------------------------------------------------------------------+
-bool HasOpenPosition()
+bool HasOpenPosition(long magic)
 {
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
       ulong ticket = PositionGetTicket(i);
       if(PositionSelectByTicket(ticket) &&
-         PositionGetInteger(POSITION_MAGIC) == InpMagic &&
+         PositionGetInteger(POSITION_MAGIC) == magic &&
          PositionGetString(POSITION_SYMBOL) == _Symbol)
          return true;
    }
@@ -128,7 +135,7 @@ void CloseAll(const string reason)
    {
       ulong ticket = PositionGetTicket(i);
       if(PositionSelectByTicket(ticket) &&
-         PositionGetInteger(POSITION_MAGIC) == InpMagic &&
+         IsOurMagic(PositionGetInteger(POSITION_MAGIC)) &&
          PositionGetString(POSITION_SYMBOL) == _Symbol)
       {
          double openPx  = PositionGetDouble(POSITION_PRICE_OPEN);
@@ -261,10 +268,46 @@ double StopDistancePrice()
    return buf[0] * InpATRMult;
 }
 
-double LotForRisk(double stopPrice)
+//+------------------------------------------------------------------+
+//| Module 3: Monday weekend-gap fill. Backtest (both pairs, IS+OOS):|
+//| gap-down -> long to Friday close: +0.38..0.45R, 72-79% win.      |
+//| Gap-UP shorts LOSE (they fight the Monday drift) - never taken.  |
+//+------------------------------------------------------------------+
+void TryGapFill(datetime today)
+{
+   double friClose = iClose(_Symbol, PERIOD_D1, 1);   // prev daily bar = Friday on Monday
+   if(friClose <= 0) return;
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double gapPips = (friClose - ask) / PipSize();      // positive = gap DOWN
+   if(gapPips < InpGapMinPips || gapPips > InpGapMaxPips) return;
+   double spreadPips = (ask - SymbolInfoDouble(_Symbol, SYMBOL_BID)) / PipSize();
+   if(spreadPips > InpMaxSpreadPips) { Journal("skip_entry", Js("side", "gap_fill") + "," + Js("reason", "spread")); return; }
+   if(!NewsClear()) { Journal("skip_entry", Js("side", "gap_fill") + "," + Js("reason", "news_blackout")); return; }
+
+   double stopDist = friClose - ask;                   // 1:1 with the gap
+   double sl = NormalizeDouble(ask - stopDist, _Digits);
+   double tp = NormalizeDouble(friClose, _Digits);
+   double lots = LotForRiskPct(stopDist, InpGapRiskPercent);
+   if(lots <= 0) return;
+   trade.SetExpertMagicNumber(InpMagic + 1);
+   bool ok = trade.Buy(lots, _Symbol, 0.0, sl, tp, "Monday gap-fill long");
+   trade.SetExpertMagicNumber(InpMagic);
+   if(ok)
+   {
+      g_lastGapDay = today;
+      Journal("entry", Js("side", "gap_fill_long") + "," + J("price", trade.ResultPrice()) + "," +
+              J("lots", lots) + "," + J("gap_pips", gapPips) + "," + J("sl", sl) + "," +
+              J("tp", tp) + "," + J("risk_pct", InpGapRiskPercent));
+      Print("Gap-fill long: gap ", DoubleToString(gapPips, 0), " pips, TP ", tp);
+   }
+   else
+      Journal("error", Js("where", "gap_buy") + "," + Js("message", trade.ResultRetcodeDescription()));
+}
+
+double LotForRiskPct(double stopPrice, double riskPct)
 {
    double balance   = AccountInfoDouble(ACCOUNT_BALANCE);
-   double riskMoney = balance * InpRiskPercent / 100.0;
+   double riskMoney = balance * riskPct / 100.0;
    double tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
    double tickSize  = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
    if(tickValue <= 0 || tickSize <= 0 || stopPrice <= 0) return 0;
@@ -285,32 +328,38 @@ void OnTick()
 
    CheckFtmoStatus();
 
-   bool inPos = HasOpenPosition();
-
    if(!GuardsOK()) return;
 
-   // exits: direction identifies the module (buy = Monday-long, sell = Friday-short)
+   // exits: direction identifies the module (buys = Monday modules, sell = Friday-short).
+   // The 23:00 Monday sweep also closes any gap-fill position whose TP wasn't reached.
+   bool inPos = HasOpenPosition(InpMagic) || HasOpenPosition(InpMagic + 1);
    if(inPos)
    {
       bool isBuy = true;
       for(int i = PositionsTotal() - 1; i >= 0; i--)
       {
          ulong tk = PositionGetTicket(i);
-         if(PositionSelectByTicket(tk) && PositionGetInteger(POSITION_MAGIC) == InpMagic &&
+         if(PositionSelectByTicket(tk) && IsOurMagic(PositionGetInteger(POSITION_MAGIC)) &&
             PositionGetString(POSITION_SYMBOL) == _Symbol)
             isBuy = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY);
       }
       if(isBuy  && (t.day_of_week != 1 || t.hour >= InpExitHour))    { CloseAll("scheduled Monday exit"); return; }
       if(!isBuy && (t.day_of_week != 5 || t.hour >= InpFriExitHour)) { CloseAll("scheduled Friday exit"); return; }
-      return;
    }
+
+   datetime today = StringToTime(TimeToString(TimeCurrent(), TIME_DATE));
+
+   // Module 3: Monday gap-DOWN fill (own magic, own risk, TP = Friday close)
+   if(InpGapFill && t.day_of_week == 1 && t.hour == InpEntryHour &&
+      today != g_lastGapDay && !HasOpenPosition(InpMagic + 1))
+      TryGapFill(today);
 
    // entries: Monday long (day 1) or Friday short (day 5), at entry hour, once per day
    bool monday = (t.day_of_week == 1);
    bool friday = (t.day_of_week == 5 && InpFridayShort);
    if((!monday && !friday) || t.hour != InpEntryHour) return;
-
-   datetime today = StringToTime(TimeToString(TimeCurrent(), TIME_DATE));
+   if(monday && HasOpenPosition(InpMagic)) return;
+   if(friday && (HasOpenPosition(InpMagic) || HasOpenPosition(InpMagic + 1))) return;
    if(today == g_lastEntryDay) return;   // already traded today
 
    double spreadPips = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) -
@@ -328,7 +377,7 @@ void OnTick()
    }
 
    double stopDist = StopDistancePrice();
-   double lots     = LotForRisk(stopDist);
+   double lots     = LotForRiskPct(stopDist, InpRiskPercent);
    if(lots <= 0)
    {
       Print("Entry skipped: lot calc failed");
