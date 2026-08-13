@@ -67,6 +67,23 @@ FTMO FAQ before each Challenge — rules change.
   Its close-to-close negativity is overnight-gap driven — not capturable by a day bot.
   Do not re-add without new evidence.
 
+## 3c. Second pair: AUDJPY Monday-long (validated Aug 2026, full GJ-standard checks)
+
+- Multi-pair sweep of 12 pairs found Monday-long is market-wide; **AUDJPY strongest**.
+- Checked to the identical standard as GBPJPY:
+  1. Exact-EA-rules h1 backtest 2012-22 (net 2 pips): **+7.5 pips/Mon 2017-22, 58.2% win,
+     +16.0 pips 2020-22**, positive every year 2015-2022, ~2% stopped.
+  2. FRED cross + currency-api validation Aug 2021 - Aug 2026: **+0.102%/Mon, t=2.3,
+     positive 6/6 calendar years including 2026.**
+- Deploy: same EA file on an AUDJPY chart, `InpFridayShort=false` (AUDJPY Friday didn't
+  validate), `InpRiskPercent=0.35` on BOTH charts when running both (GJ+AUDJPY Monday
+  longs are the same short-yen macro bet - correlated).
+- **AUDJPY Wednesday-long: REJECTED for the bot** - strong close-to-close (6/6 years)
+  but only +1.7 pips intraday 2017-22 exact-rules; mostly overnight-gap, same trap as
+  GJ Thursday. Watch in journal, don't trade.
+- **EURCHF Monday: REJECTED** - highest historical t (5.3) but dead since 2021
+  (t=0.5). Lesson: always validate on recent data before deploying.
+
 ## 4. The plan (agreed Aug 2026)
 
 1. **Paper trade for 1 month**: MT5 demo / FTMO Free Trial, EA at defaults.
