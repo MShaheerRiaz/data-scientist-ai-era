@@ -18,22 +18,25 @@ OOS_YEAR = 2019
 LONDON_OPEN = 10.0
 MORNING_END = 14.0
 
-# pip size (price units) and realistic round-trip cost in pips
+# pip size (price units), realistic round-trip cost in pips, and raw-price
+# divisor (repo stores ints: JPY pairs x1000, 5-digit pairs x100000, gold x100)
 SPEC = {
-    "EURUSD": (0.0001, 1.2), "GBPUSD": (0.0001, 1.8), "AUDUSD": (0.0001, 1.2),
-    "USDCAD": (0.0001, 1.8), "USDCHF": (0.0001, 1.8), "EURGBP": (0.0001, 1.8),
-    "USDJPY": (0.01, 1.2), "EURJPY": (0.01, 2.0), "GBPJPY": (0.01, 3.0),
-    "AUDJPY": (0.01, 2.0), "EURCHF": (0.0001, 2.0), "XAUUSD": (0.1, 3.5),
+    "EURUSD": (0.0001, 1.2, 1e5), "GBPUSD": (0.0001, 1.8, 1e5),
+    "AUDUSD": (0.0001, 1.2, 1e5), "USDCAD": (0.0001, 1.8, 1e5),
+    "USDCHF": (0.0001, 1.8, 1e5), "EURGBP": (0.0001, 1.8, 1e5),
+    "EURCHF": (0.0001, 2.0, 1e5), "USDJPY": (0.01, 1.2, 1e3),
+    "EURJPY": (0.01, 2.0, 1e3), "GBPJPY": (0.01, 3.0, 1e3),
+    "AUDJPY": (0.01, 2.0, 1e3), "XAUUSD": (0.1, 3.5, 1e2),
 }
 
 
-def load(pair, pip):
+def load(pair, pip, div=1e3):
     m = pd.read_csv(f"{BASE}/{pair}/{pair}m15.csv", parse_dates=["Date"])
     h = pd.read_csv(f"{BASE}/{pair}/{pair}h1.csv", parse_dates=["Date"])
     d = pd.read_csv(f"{BASE}/{pair}/{pair}d1.csv", parse_dates=["Date"])
     for df in (m, h, d):
         for c in ("open", "high", "low", "close"):
-            df[c] /= 1000
+            df[c] /= div
     for df in (m, h):
         df.drop(df[df.Date.dt.dayofweek >= 5].index, inplace=True)
         df["date"] = df.Date.dt.date
@@ -67,8 +70,18 @@ def run_daily(m, fn, pip, cutoff=21):
         r = fn(g, pd.Timestamp(day).dayofweek)
         if r is None:
             continue
-        side, t0, entry, sl, tp = r
+        side, t0, entry, sl, tp = r[:5]
+        stop_entry = len(r) > 5 and r[5]
         after = g[(g.Date > t0) & (g.hh <= cutoff)]
+        if stop_entry:
+            # entry filled by a stop order inside bar t0: worst case, if that
+            # bar's range also covers the SL, count the trade as stopped
+            b0 = g[g.Date == t0]
+            if len(b0):
+                b0 = b0.iloc[0]
+                if (side == 1 and b0.low <= sl) or (side == -1 and b0.high >= sl):
+                    out.append((pd.Timestamp(day), -1.0, abs(entry - sl) / pip))
+                    continue
         out.append((pd.Timestamp(day), resolve(after, side, entry, sl, tp),
                     abs(entry - sl) / pip))
     return out
@@ -125,9 +138,9 @@ def make_school_run(pip):
         post = g[(g.hh >= LONDON_OPEN + 0.5) & (g.hh <= MORNING_END)]
         for _, b in post.iterrows():
             if b.high >= hi + buf:
-                return 1, b.Date, hi + buf, lo - buf, None
+                return 1, b.Date, hi + buf, lo - buf, None, True
             if b.low <= lo - buf:
-                return -1, b.Date, lo - buf, hi + buf, None
+                return -1, b.Date, lo - buf, hi + buf, None, True
         return None
     return f
 
@@ -144,8 +157,8 @@ def make_first_bar_trap(pip):
             if b.low <= b0.low - buf:
                 e = b0.low - buf
                 if b0.close > b0.open:
-                    return -1, b.Date, e, b0.high + buf, None
-                return 1, b.Date, e, e - 15 * pip, None
+                    return -1, b.Date, e, b0.high + buf, None, True
+                return 1, b.Date, e, e - 15 * pip, None, True
         return None
     return f
 
@@ -251,9 +264,9 @@ def make_fishing(h1, pip):
 
 def main():
     results = []
-    for pair, (pip, cost) in SPEC.items():
+    for pair, (pip, cost, div) in SPEC.items():
         try:
-            m, h, d1 = load(pair, pip)
+            m, h, d1 = load(pair, pip, div)
         except FileNotFoundError:
             print(f"{pair}: no data, skipped")
             continue
