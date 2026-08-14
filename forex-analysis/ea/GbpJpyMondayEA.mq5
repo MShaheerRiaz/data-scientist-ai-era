@@ -17,9 +17,16 @@
 //|     (FTMO restricts news trading during Challenge/Verification)  |
 //| This EA implements the account owner's own strategy; it is not   |
 //| a commercial/third-party EA.                                     |
+//|                                                                  |
+//| v4 (2026-08-14): multi-pair gap-fill deployment. InpMondayLong   |
+//| lets a chart run gap-fill-only (for GBPUSD, USDCHF, EURGBP,      |
+//| USDCAD, EURJPY, where ONLY the Monday gap-fill edge survived     |
+//| IS+OOS). InpMaxGapRiskTotal caps combined gap risk per Monday    |
+//| across every chart via a terminal global variable, because one   |
+//| weekend USD move gaps many pairs at once.                        |
 //+------------------------------------------------------------------+
 #property copyright "Private strategy - not for distribution"
-#property version   "1.00"
+#property version   "4.00"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -29,14 +36,16 @@ input double InpRiskPercent      = 0.5;   // Risk per trade, % of balance
 input double InpATRMult          = 1.5;   // Stop = ATR(D1) x this
 input int    InpATRPeriod        = 14;    // ATR period (D1)
 input double InpFixedStopPips    = 0;     // Fixed stop in pips (0 = use ATR)
-input int    InpEntryHour        = 0;     // Entry hour, server time
+input int    InpEntryHour        = 1;     // Entry hour, server time (NOT 0: FTMO spread ~20 pips at midnight rollover, entries all get skipped)
 input int    InpExitHour         = 23;    // Monday exit hour, server time
+input bool   InpMondayLong       = true;  // Enable Monday seasonality-long module (false = gap-fill-only chart)
 input bool   InpFridayShort      = true;  // Enable Friday-short module (+12.5 pips/trade 2012-22, 10/11 yrs positive)
 input int    InpFriExitHour      = 22;    // Friday exit hour, server time (buffer before weekend close)
 input bool   InpGapFill          = true;  // Monday gap-DOWN fill module (+0.4R, 72-79% win both pairs IS+OOS)
 input double InpGapMinPips       = 15;    // Min weekend gap (pips) to trade
 input double InpGapMaxPips       = 120;   // Max weekend gap (pips) to trade
 input double InpGapRiskPercent   = 0.35;  // Risk % for the gap-fill trade (magic = InpMagic+1)
+input double InpMaxGapRiskTotal  = 1.0;   // Max TOTAL gap risk % per Monday across ALL charts (weekend gaps are correlated; 0 = off)
 input double InpMaxDailyLossPct  = 3.0;   // Halt day if equity falls this % from day start
 input double InpMaxTotalDDPct    = 8.0;   // Halt EA if equity falls this % from baseline
 input double InpMaxSpreadPips    = 6.0;   // Skip entry if spread wider than this
@@ -61,7 +70,7 @@ int     g_dayOfEquity    = -1;
 bool    g_totalHalt      = false;
 datetime g_lastEntryDay  = 0;
 
-double PipSize()   { return _Point * 10; }  // 3-digit JPY quotes: 1 pip = 0.01
+double PipSize()   { return _Point * 10; }  // 1 pip = 10 points on 3-digit JPY and 5-digit quotes alike
 double PipsToPrice(double pips) { return pips * PipSize(); }
 
 //+------------------------------------------------------------------+
@@ -93,8 +102,9 @@ string Js(const string k, const string v) { return StringFormat("\"%s\":\"%s\"",
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   if(StringFind(_Symbol, "GBPJPY") < 0)
-      Print("Warning: EA designed for GBPJPY, attached to ", _Symbol);
+   if(StringFind(_Symbol, "GBPJPY") < 0 && (InpMondayLong || InpFridayShort))
+      Print("Warning: seasonality modules were validated on GBPJPY/AUDJPY only; ",
+            _Symbol, " should normally run gap-fill-only (InpMondayLong=false, InpFridayShort=false)");
    trade.SetExpertMagicNumber(InpMagic);
    g_baselineEquity = AccountInfoDouble(ACCOUNT_EQUITY);
    ResetDay();
@@ -248,7 +258,9 @@ bool NewsClear()
       if(ev.importance != CALENDAR_IMPORTANCE_HIGH) continue;
       MqlCalendarCountry c;
       if(!CalendarCountryById(ev.country_id, c)) continue;
-      if(c.currency == "GBP" || c.currency == "JPY" || c.currency == "USD")
+      string base = SymbolInfoString(_Symbol, SYMBOL_CURRENCY_BASE);
+      string quote = SymbolInfoString(_Symbol, SYMBOL_CURRENCY_PROFIT);
+      if(c.currency == base || c.currency == quote || c.currency == "USD")
       {
          Print("Entry blocked: high-impact ", c.currency, " event near now (", ev.name, ")");
          return false;
@@ -284,14 +296,31 @@ void TryGapFill(datetime today)
    if(spreadPips > InpMaxSpreadPips) { Journal("skip_entry", Js("side", "gap_fill") + "," + Js("reason", "spread")); return; }
    if(!NewsClear()) { Journal("skip_entry", Js("side", "gap_fill") + "," + Js("reason", "news_blackout")); return; }
 
+   // Terminal-wide Monday gap-risk cap: weekend gaps are correlated (one USD
+   // move gaps many pairs at once), so the charts share a per-day budget via
+   // a terminal global variable. Reserve BEFORE the order, roll back on fail.
+   string gvName = "GJB_gaprisk_" + TimeToString(today, TIME_DATE);
+   double gvUsed = GlobalVariableCheck(gvName) ? GlobalVariableGet(gvName) : 0.0;
+   if(InpMaxGapRiskTotal > 0 && gvUsed + InpGapRiskPercent > InpMaxGapRiskTotal + 0.0001)
+   {
+      Journal("skip_entry", Js("side", "gap_fill") + "," + Js("reason", "gap_risk_cap") + "," +
+              J("used_pct", gvUsed) + "," + J("cap_pct", InpMaxGapRiskTotal));
+      Print("Gap-fill skipped: terminal gap risk ", DoubleToString(gvUsed, 2),
+            "% + ", DoubleToString(InpGapRiskPercent, 2), "% would exceed cap ",
+            DoubleToString(InpMaxGapRiskTotal, 2), "%");
+      return;
+   }
+   GlobalVariableSet(gvName, gvUsed + InpGapRiskPercent);
+
    double stopDist = friClose - ask;                   // 1:1 with the gap
    double sl = NormalizeDouble(ask - stopDist, _Digits);
    double tp = NormalizeDouble(friClose, _Digits);
    double lots = LotForRiskPct(stopDist, InpGapRiskPercent);
-   if(lots <= 0) return;
+   if(lots <= 0) { GlobalVariableSet(gvName, gvUsed); return; }
    trade.SetExpertMagicNumber(InpMagic + 1);
    bool ok = trade.Buy(lots, _Symbol, 0.0, sl, tp, "Monday gap-fill long");
    trade.SetExpertMagicNumber(InpMagic);
+   if(!ok) GlobalVariableSet(gvName, gvUsed);          // roll back the reservation
    if(ok)
    {
       g_lastGapDay = today;
@@ -355,7 +384,7 @@ void OnTick()
       TryGapFill(today);
 
    // entries: Monday long (day 1) or Friday short (day 5), at entry hour, once per day
-   bool monday = (t.day_of_week == 1);
+   bool monday = (t.day_of_week == 1 && InpMondayLong);
    bool friday = (t.day_of_week == 5 && InpFridayShort);
    if((!monday && !friday) || t.hour != InpEntryHour) return;
    if(monday && HasOpenPosition(InpMagic)) return;
