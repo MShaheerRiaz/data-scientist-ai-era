@@ -47,18 +47,37 @@ function rateLimited(ip) {
   return entry.count > RATE_LIMIT.max;
 }
 
+/**
+ * Origins the widget is always allowed to be embedded on. These are not secrets,
+ * so they live here rather than in an env var — ALLOWED_ORIGINS is only needed to
+ * add extra domains, and anything set there is merged with this list.
+ */
+const DEFAULT_ORIGINS = [
+  'https://volare.ai',
+  'https://www.volare.ai',
+  'https://aurainterface.framer.website',
+];
+
 function applyCors(req, res) {
-  const allowed = (process.env.ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const allowed = DEFAULT_ORIGINS.concat(
+    (process.env.ALLOWED_ORIGINS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
   const origin = req.headers.origin;
 
-  // With no allowlist configured we fall back to '*' so local testing works out of
-  // the box. Always set ALLOWED_ORIGINS in production.
-  if (allowed.length === 0) res.setHeader('Access-Control-Allow-Origin', '*');
-  else if (origin && allowed.includes(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
-  else return false;
+  // Same-origin requests (the status page on the deployment itself) send no Origin
+  // header; those need no CORS header at all.
+  if (!origin) return true;
+
+  // Any *.vercel.app deployment of this project — preview URLs change per commit,
+  // so they can't be enumerated ahead of time.
+  const isOwnDeployment = /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin);
+
+  if (allowed.includes(origin) || isOwnDeployment) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else return false;
 
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
