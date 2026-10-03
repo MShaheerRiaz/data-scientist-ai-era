@@ -1,0 +1,13 @@
+{
+  "node": "n8n-nodes-social-media-poster.blueskyPoster",
+  "nodeVersion": "1.0",
+  "codexVersion": "1.0",
+  "categories": ["Marketing & Content"],
+  "resources": {
+    "primaryDocumentation": [
+      {
+        "url": "https://docs.bsky.app/docs/tutorials/creating-a-post"
+      }
+    ]
+  }
+}
