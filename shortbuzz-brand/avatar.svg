@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="1080" height="1080">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="75%">
+      <stop offset="0" stop-color="#1b1f4b"/>
+      <stop offset="1" stop-color="#070914"/>
+    </radialGradient>
+    <linearGradient id="orb" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd86b"/>
+      <stop offset="1" stop-color="#ff7a45"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#3ee6c8"/>
+      <stop offset="1" stop-color="#7a8cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1080" fill="url(#bg)"/>
+  <g fill="#fff">
+    <circle cx="170" cy="210" r="4" opacity=".7"/><circle cx="910" cy="160" r="3" opacity=".6"/>
+    <circle cx="960" cy="520" r="4" opacity=".5"/><circle cx="120" cy="760" r="3" opacity=".6"/>
+    <circle cx="840" cy="900" r="4" opacity=".7"/><circle cx="300" cy="940" r="3" opacity=".5"/>
+  </g>
+  <!-- orbit back half -->
+  <g transform="rotate(-24 540 540)">
+    <ellipse cx="540" cy="540" rx="330" ry="120" fill="none" stroke="url(#ring)" stroke-width="22" stroke-linecap="round" opacity=".45"/>
+  </g>
+  <!-- core -->
+  <circle cx="540" cy="540" r="150" fill="url(#orb)"/>
+  <!-- orbit front half -->
+  <g transform="rotate(-24 540 540)">
+    <path d="M210 540 A330 120 0 0 0 870 540" fill="none" stroke="url(#ring)" stroke-width="22" stroke-linecap="round"/>
+    <!-- spark on orbit -->
+    <g transform="translate(870 540) rotate(24)">
+      <path d="M0 -62 C6 -14 14 -6 62 0 C14 6 6 14 0 62 C-6 14 -14 6 -62 0 C-14 -6 -6 -14 0 -62Z" fill="#fff"/>
+    </g>
+  </g>
+</svg>
